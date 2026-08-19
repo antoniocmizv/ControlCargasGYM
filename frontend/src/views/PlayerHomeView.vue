@@ -16,13 +16,18 @@ const today = computed(() =>
   new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
 )
 
+/** Con una sola batería se muestra su nombre; con varias, el resumen del día. */
+const headline = computed(() =>
+  workout.routines.length === 1 ? workout.routines[0].name : `${workout.routines.length} baterías hoy`
+)
+
 const progress = computed(() =>
   workout.totalSets ? Math.round((workout.loggedSets / workout.totalSets) * 100) : 0
 )
 
 /** Se despliega solo el ejercicio en curso; el resto queda plegado. */
 const firstPendingId = computed(
-  () => (workout.routine?.items || []).find((item) => item.logs.length < item.sets)?.id ?? null
+  () => workout.allItems.find((item) => item.logs.length < item.sets)?.id ?? null
 )
 
 onMounted(() => {
@@ -75,7 +80,7 @@ function logout() {
     </StateBlock>
 
     <StateBlock
-      v-else-if="!workout.routine"
+      v-else-if="!workout.routines.length"
       icon="😴"
       title="Hoy no tienes batería asignada"
       message="Cuando el entrenador dé de alta la sesión aparecerá aquí."
@@ -87,14 +92,16 @@ function logout() {
       <section class="card mb-4">
         <div class="mb-3 flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <h2 class="truncate text-lg font-bold">{{ workout.routine.name }}</h2>
+            <h2 class="truncate text-lg font-bold">{{ headline }}</h2>
             <p class="text-sm text-slate-400">
-              {{ workout.routine.items.length }} ejercicios · {{ workout.totalSets }} series
+              {{ workout.allItems.length }} ejercicios · {{ workout.totalSets }} series
             </p>
           </div>
           <span
             class="chip shrink-0"
-            :class="workout.isComplete ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-800 text-slate-300'"
+            :class="
+              workout.isComplete ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-800 text-slate-300'
+            "
           >
             {{ workout.loggedSets }}/{{ workout.totalSets }}
           </span>
@@ -108,25 +115,32 @@ function logout() {
           />
         </div>
 
-        <p v-if="workout.routine.notes" class="mt-3 text-sm italic text-slate-400">
-          {{ workout.routine.notes }}
-        </p>
         <p v-if="workout.isComplete" class="mt-3 text-sm font-semibold text-emerald-400">
           ✅ Sesión completada. ¡Buen trabajo!
         </p>
       </section>
 
-      <div class="space-y-3">
-        <ExerciseCard
-          v-for="item in workout.routine.items"
-          :key="item.id"
-          :item="item"
-          :is-saving="workout.isSaving"
-          :is-pending="workout.isPending"
-          :start-open="item.id === firstPendingId"
-          @save="onSave"
-        />
-      </div>
+      <!-- Normalmente hay una sola batería; si el entrenador asigna un extra, van seguidas. -->
+      <section v-for="routine in workout.routines" :key="routine.id" class="mb-4 last:mb-0">
+        <div v-if="workout.routines.length > 1" class="mb-2 px-1">
+          <h3 class="font-bold">{{ routine.name }}</h3>
+        </div>
+        <p v-if="routine.notes" class="mb-3 px-1 text-sm italic text-slate-400">
+          {{ routine.notes }}
+        </p>
+
+        <div class="space-y-3">
+          <ExerciseCard
+            v-for="item in routine.items"
+            :key="item.id"
+            :item="item"
+            :is-saving="workout.isSaving"
+            :is-pending="workout.isPending"
+            :start-open="item.id === firstPendingId"
+            @save="onSave"
+          />
+        </div>
+      </section>
     </template>
   </AppShell>
 </template>

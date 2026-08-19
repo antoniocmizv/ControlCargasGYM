@@ -40,14 +40,20 @@ def routines_for_player_stmt(user: User) -> Select:
     )
 
 
-def get_player_routine_for_date(db: Session, user: User, day: date) -> Routine | None:
+def get_player_routines_for_date(db: Session, user: User, day: date) -> list[Routine]:
+    """Todas las del día: un jugador puede tener la del equipo y un extra individual."""
     stmt = (
         routines_for_player_stmt(user)
         .where(Routine.session_date == day)
-        .order_by(Routine.created_at.desc())
+        .order_by(Routine.created_at)
         .options(selectinload(Routine.items))
     )
-    return db.scalars(stmt).first()
+    return list(db.scalars(stmt).all())
+
+
+def player_can_access_routine(db: Session, user: User, routine_id: int) -> bool:
+    stmt = routines_for_player_stmt(user).where(Routine.id == routine_id)
+    return db.scalars(stmt).first() is not None
 
 
 def players_assigned_to(db: Session, routine: Routine) -> list[User]:

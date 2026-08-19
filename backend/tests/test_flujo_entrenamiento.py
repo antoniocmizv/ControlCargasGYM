@@ -55,12 +55,11 @@ def equipo(client: TestClient, coach_headers: dict) -> dict:
 
 
 def test_la_bateria_solo_la_ve_el_grupo_asignado(client: TestClient, equipo: dict):
-    asignada = client.get("/api/routines/today", headers=equipo["portero"]).json()
-    assert asignada is not None
-    assert asignada["id"] == equipo["rutina"]["id"]
-    assert len(asignada["items"]) == 2
+    asignadas = client.get("/api/routines/today", headers=equipo["portero"]).json()
+    assert [routine["id"] for routine in asignadas] == [equipo["rutina"]["id"]]
+    assert len(asignadas[0]["items"]) == 2
 
-    assert client.get("/api/routines/today", headers=equipo["suplente"]).json() is None
+    assert client.get("/api/routines/today", headers=equipo["suplente"]).json() == []
 
 
 def test_registrar_y_corregir_cargas(client: TestClient, equipo: dict):
@@ -81,7 +80,7 @@ def test_registrar_y_corregir_cargas(client: TestClient, equipo: dict):
         json={"routine_exercise_id": item_id, "set_number": 1, "load_kg": 62.5, "reps": 8},
     )
 
-    logs = client.get("/api/routines/today", headers=equipo["portero"]).json()["items"][0]["logs"]
+    logs = client.get("/api/routines/today", headers=equipo["portero"]).json()[0]["items"][0]["logs"]
     assert [(log["set_number"], log["load_kg"]) for log in logs] == [(1, 62.5), (2, 65.0), (3, 70.0)]
 
 
@@ -139,7 +138,7 @@ def test_historial_muestra_la_carga_de_la_sesion_anterior(
     )
 
     hoy = client.get("/api/routines/today", headers=equipo["portero"]).json()
-    assert hoy["items"][0]["last_performance"]["best_load_kg"] == 55.0
+    assert hoy[0]["items"][0]["last_performance"]["best_load_kg"] == 55.0
 
 
 def test_duplicar_bateria_a_otra_fecha(client: TestClient, coach_headers: dict, equipo: dict):
@@ -167,3 +166,35 @@ def test_una_bateria_sin_ejercicios_es_rechazada(client: TestClient, coach_heade
         },
     )
     assert response.status_code == 400
+
+
+def test_el_jugador_ve_tanto_la_del_equipo_como_su_extra_individual(
+    client: TestClient, coach_headers: dict, equipo: dict
+):
+    ejercicios = client.get("/api/coach/exercises", headers=coach_headers).json()
+    extra = client.post(
+        "/api/coach/routines",
+        headers=coach_headers,
+        json={
+            "name": "Extra de recuperación",
+            "session_date": TODAY,
+            "items": [{"exercise_id": ejercicios[3]["id"], "sets": 2, "target_reps": 12}],
+            "assignments": [{"target_type": "player", "user_id": equipo["portero_id"]}],
+        },
+    ).json()
+
+    asignadas = client.get("/api/routines/today", headers=equipo["portero"]).json()
+    ids = [routine["id"] for routine in asignadas]
+    assert equipo["rutina"]["id"] in ids
+    assert extra["id"] in ids
+
+    # Y puede registrar cargas en la bateria extra.
+    response = client.post(
+        "/api/logs",
+        headers=equipo["portero"],
+        json={"routine_exercise_id": extra["items"][0]["id"], "set_number": 1, "load_kg": 30, "reps": 12},
+    )
+    assert response.status_code == 200
+
+    # El suplente sigue sin ver ninguna de las dos.
+    assert client.get("/api/routines/today", headers=equipo["suplente"]).json() == []

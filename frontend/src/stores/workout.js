@@ -17,19 +17,16 @@ function loadQueue() {
 const keyOf = (itemId, setNumber) => `${itemId}:${setNumber}`
 
 export const useWorkoutStore = defineStore('workout', () => {
-  const routine = ref(null)
+  const routines = ref([])
   const loading = ref(false)
   const error = ref('')
   const saving = ref(new Set())
   const queue = ref(loadQueue())
 
   const pendingCount = computed(() => queue.value.length)
-  const totalSets = computed(() =>
-    (routine.value?.items || []).reduce((acc, item) => acc + item.sets, 0)
-  )
-  const loggedSets = computed(() =>
-    (routine.value?.items || []).reduce((acc, item) => acc + item.logs.length, 0)
-  )
+  const allItems = computed(() => routines.value.flatMap((routine) => routine.items))
+  const totalSets = computed(() => allItems.value.reduce((acc, item) => acc + item.sets, 0))
+  const loggedSets = computed(() => allItems.value.reduce((acc, item) => acc + item.logs.length, 0))
   const isComplete = computed(() => totalSets.value > 0 && loggedSets.value >= totalSets.value)
 
   function persistQueue() {
@@ -40,11 +37,11 @@ export const useWorkoutStore = defineStore('workout', () => {
     loading.value = true
     error.value = ''
     try {
-      routine.value = await api.get('/routines/today', day ? { day } : undefined)
+      routines.value = await api.get('/routines/today', day ? { day } : undefined)
       await flushQueue()
     } catch (err) {
       error.value = err.message
-      routine.value = null
+      routines.value = []
     } finally {
       loading.value = false
     }
@@ -52,7 +49,7 @@ export const useWorkoutStore = defineStore('workout', () => {
 
   /** Escribe el valor en memoria para que la UI responda al instante. */
   function applyLocally({ routine_exercise_id: itemId, set_number: setNumber, load_kg, reps }) {
-    const item = routine.value?.items.find((entry) => entry.id === itemId)
+    const item = allItems.value.find((entry) => entry.id === itemId)
     if (!item) return
     const existing = item.logs.find((log) => log.set_number === setNumber)
     if (existing) {
@@ -103,7 +100,7 @@ export const useWorkoutStore = defineStore('workout', () => {
     try {
       const saved = await api.post('/logs', payload)
       dequeue(payload)
-      const item = routine.value?.items.find((entry) => entry.id === itemId)
+      const item = allItems.value.find((entry) => entry.id === itemId)
       const local = item?.logs.find((log) => log.set_number === setNumber)
       if (local) local.id = saved.id
       return true
@@ -143,12 +140,13 @@ export const useWorkoutStore = defineStore('workout', () => {
   }
 
   function reset() {
-    routine.value = null
+    routines.value = []
     error.value = ''
   }
 
   return {
-    routine,
+    routines,
+    allItems,
     loading,
     error,
     queue,

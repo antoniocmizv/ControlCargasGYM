@@ -7,7 +7,8 @@ serie a serie. Todo se puede exportar a Excel.
 ## Cómo funciona
 
 **El jugador** abre la web, toca su nombre, marca su PIN de 4 dígitos y ya ve la batería
-del día. Por cada serie tiene dos steppers grandes (kg y repeticiones): cada toque guarda
+del día. Si ese día tiene más de una asignada (la del equipo más un extra individual, por
+ejemplo), las ve todas seguidas con el progreso conjunto. Por cada serie tiene dos steppers grandes (kg y repeticiones): cada toque guarda
 solo, sin botón de "enviar". Debajo de cada ejercicio aparece lo que levantó la última vez,
 para saber por dónde iba.
 
@@ -110,7 +111,7 @@ frontend/
 | `POST` | `/api/auth/login/player` | público | Valida jugador + PIN y devuelve el JWT |
 | `POST` | `/api/auth/login/coach` | público | Valida usuario + contraseña y devuelve el JWT |
 | `GET` | `/api/auth/me` | autenticado | Datos del usuario de la sesión |
-| `GET` | `/api/routines/today` | jugador | Batería del día que le corresponde, con sus cargas ya registradas |
+| `GET` | `/api/routines/today` | jugador | Baterías del día que le corresponden, con sus cargas ya registradas |
 | `GET` | `/api/routines/mine` | jugador | Últimas sesiones asignadas |
 | `POST` | `/api/logs` | jugador | Guarda o corrige la carga de una serie |
 | `GET`/`POST`/`PATCH`/`DELETE` | `/api/coach/players`, `/groups`, `/exercises` | entrenador | Gestión de plantilla, grupos y catálogo |

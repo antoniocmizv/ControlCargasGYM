@@ -15,7 +15,11 @@ from app.schemas import (
     SetLogIn,
     SetLogOut,
 )
-from app.services.routines import get_player_routine_for_date, routines_for_player_stmt
+from app.services.routines import (
+    get_player_routines_for_date,
+    player_can_access_routine,
+    routines_for_player_stmt,
+)
 
 router = APIRouter(tags=["jugador"])
 
@@ -46,19 +50,18 @@ def _last_performance(db: Session, user_id: int, exercise_id: int, before: date)
     return LastPerformance(session_date=row[0], best_load_kg=float(row[1]), reps=row[2])
 
 
-@router.get("/routines/today", response_model=PlayerRoutine | None)
-def routine_today(
+@router.get("/routines/today", response_model=list[PlayerRoutine])
+def routines_today(
     day: date | None = Query(default=None, description="Por defecto, hoy"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     _require_player(user)
-    target_day = day or date.today()
-    routine = get_player_routine_for_date(db, user, target_day)
-    if routine is None:
-        return None
+    routines = get_player_routines_for_date(db, user, day or date.today())
+    if not routines:
+        return []
 
-    item_ids = [item.id for item in routine.items]
+    item_ids = [item.id for routine in routines for item in routine.items]
     logs_by_item: dict[int, list[SetLog]] = {}
     if item_ids:
         logs = db.scalars(
@@ -69,26 +72,31 @@ def routine_today(
         for log in logs:
             logs_by_item.setdefault(log.routine_exercise_id, []).append(log)
 
-    return PlayerRoutine(
-        id=routine.id,
-        name=routine.name,
-        session_date=routine.session_date,
-        notes=routine.notes,
-        items=[
-            PlayerRoutineExercise(
-                id=item.id,
-                position=item.position,
-                sets=item.sets,
-                target_reps=item.target_reps,
-                rest_seconds=item.rest_seconds,
-                notes=item.notes,
-                exercise=ExerciseOut.model_validate(item.exercise),
-                logs=[SetLogOut.model_validate(log) for log in logs_by_item.get(item.id, [])],
-                last_performance=_last_performance(db, user.id, item.exercise_id, routine.session_date),
-            )
-            for item in routine.items
-        ],
-    )
+    return [
+        PlayerRoutine(
+            id=routine.id,
+            name=routine.name,
+            session_date=routine.session_date,
+            notes=routine.notes,
+            items=[
+                PlayerRoutineExercise(
+                    id=item.id,
+                    position=item.position,
+                    sets=item.sets,
+                    target_reps=item.target_reps,
+                    rest_seconds=item.rest_seconds,
+                    notes=item.notes,
+                    exercise=ExerciseOut.model_validate(item.exercise),
+                    logs=[SetLogOut.model_validate(log) for log in logs_by_item.get(item.id, [])],
+                    last_performance=_last_performance(
+                        db, user.id, item.exercise_id, routine.session_date
+                    ),
+                )
+                for item in routine.items
+            ],
+        )
+        for routine in routines
+    ]
 
 
 @router.get("/routines/mine", response_model=list[dict])
@@ -127,8 +135,7 @@ def save_log(payload: SetLogIn, db: Session = Depends(get_db), user: User = Depe
     if payload.set_number > item.sets:
         raise HTTPException(status_code=400, detail="Número de serie fuera de rango")
 
-    routine = get_player_routine_for_date(db, user, item.routine.session_date)
-    if routine is None or routine.id != item.routine_id:
+    if not player_can_access_routine(db, user, item.routine_id):
         raise HTTPException(status_code=403, detail="Esta batería no está asignada a ti")
 
     log = db.scalars(
