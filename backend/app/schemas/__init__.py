@@ -84,6 +84,9 @@ class ExerciseOut(ORMModel):
 
 # ---------- Rutinas ----------
 class RoutineExerciseIn(BaseModel):
+    # Al editar, el id identifica al ejercicio que ya estaba en la batería para
+    # conservarlo (y con él las cargas ya registradas). Vacío = ejercicio nuevo.
+    id: int | None = None
     exercise_id: int
     sets: int = Field(default=3, ge=1, le=20)
     target_reps: int | None = Field(default=None, ge=1, le=200)

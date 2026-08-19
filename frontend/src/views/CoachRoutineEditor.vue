@@ -67,6 +67,7 @@ async function loadRoutine() {
   sessionDate.value = routine.session_date
   notes.value = routine.notes || ''
   items.value = routine.items.map((item) => ({
+    id: item.id,
     exercise_id: item.exercise.id,
     exercise_name: item.exercise.name,
     sets: item.sets,
@@ -89,6 +90,7 @@ async function loadRoutine() {
 
 function addExercise(exercise) {
   items.value.push({
+    id: null,
     exercise_id: exercise.id,
     exercise_name: exercise.name,
     sets: 3,
@@ -140,6 +142,7 @@ async function save() {
       session_date: sessionDate.value,
       notes: notes.value.trim() || null,
       items: items.value.map((item) => ({
+        id: item.id ?? null,
         exercise_id: item.exercise_id,
         sets: Number(item.sets) || 1,
         target_reps: item.target_reps ? Number(item.target_reps) : null,
@@ -266,6 +269,12 @@ async function save() {
             + Añadir
           </button>
         </div>
+
+        <!-- Nota aparte de la cadena v-if/v-else: no debe sustituir a la lista. -->
+        <p v-if="isEdit && items.length" class="mb-2 px-1 text-xs text-slate-500">
+          Puedes cambiar nombre, fecha, series o descansos sin perder lo ya registrado. Quitar un
+          ejercicio o recortar sus series sí borra esas cargas.
+        </p>
 
         <p v-if="!items.length" class="card py-8 text-center text-sm text-slate-400">
           Añade el primer ejercicio de la batería.
