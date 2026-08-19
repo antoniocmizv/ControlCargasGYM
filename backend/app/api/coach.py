@@ -1,7 +1,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -207,18 +207,69 @@ def _apply_routine_payload(db: Session, routine: Routine, payload: RoutineIn) ->
     if len(found) != len(exercise_ids):
         raise HTTPException(status_code=400, detail="Algún ejercicio indicado no existe")
 
-    routine.items = [
-        RoutineExercise(
-            exercise_id=item.exercise_id,
-            position=index,
-            sets=item.sets,
-            target_reps=item.target_reps,
-            rest_seconds=item.rest_seconds,
-            notes=item.notes,
-        )
-        for index, item in enumerate(payload.items)
-    ]
+    _reconcile_items(db, routine, payload)
     routine.assignments = [_build_assignment(db, a) for a in payload.assignments]
+
+
+def _reconcile_items(db: Session, routine: Routine, payload: RoutineIn) -> None:
+    """
+    Actualiza los ejercicios en su sitio en lugar de recrearlos.
+
+    Recrearlos borraria por cascada las cargas que los jugadores ya hubieran
+    registrado, asi que hasta renombrar la sesion vaciaba la sesion entera.
+    Cada linea entrante se empareja con la que ya existia por id y, si el
+    cliente no lo manda, por ejercicio: perder cargas nunca puede depender de
+    que quien llama se acuerde de devolver un identificador.
+    """
+    disponibles = list(routine.items)
+    emparejado: dict[int, RoutineExercise] = {}
+
+    for index, incoming in enumerate(payload.items):
+        if incoming.id is None:
+            continue
+        item = next((e for e in disponibles if e.id == incoming.id), None)
+        if item is not None:
+            disponibles.remove(item)
+            emparejado[index] = item
+
+    for index, incoming in enumerate(payload.items):
+        if index in emparejado:
+            continue
+        item = next((e for e in disponibles if e.exercise_id == incoming.exercise_id), None)
+        if item is not None:
+            disponibles.remove(item)
+            emparejado[index] = item
+
+    conservados: list[RoutineExercise] = []
+    for position, incoming in enumerate(payload.items):
+        item = emparejado.get(position)
+        if item is None:
+            item = RoutineExercise(exercise_id=incoming.exercise_id)
+        elif item.exercise_id != incoming.exercise_id:
+            # Cambiar de ejercicio invalida lo registrado en esa linea.
+            _drop_logs(db, item.id)
+            item.exercise_id = incoming.exercise_id
+
+        item.position = position
+        item.sets = incoming.sets
+        item.target_reps = incoming.target_reps
+        item.rest_seconds = incoming.rest_seconds
+        item.notes = incoming.notes
+
+        # Si se recortan las series, las cargas sobrantes ya no tienen sitio.
+        if item.id is not None:
+            _drop_logs(db, item.id, above_set=incoming.sets)
+
+        conservados.append(item)
+
+    routine.items = conservados
+
+
+def _drop_logs(db: Session, routine_exercise_id: int, above_set: int | None = None) -> None:
+    stmt = delete(SetLog).where(SetLog.routine_exercise_id == routine_exercise_id)
+    if above_set is not None:
+        stmt = stmt.where(SetLog.set_number > above_set)
+    db.execute(stmt)
 
 
 def _build_assignment(db: Session, payload: AssignmentIn) -> RoutineAssignment:
