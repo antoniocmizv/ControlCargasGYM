@@ -73,7 +73,7 @@ class Exercise(Base):
 
 
 class Routine(Base):
-    """Bateria de ejercicios para un dia concreto."""
+    """Batería de ejercicios para un día concreto."""
 
     __tablename__ = "routines"
 
@@ -112,7 +112,7 @@ class RoutineExercise(Base):
 
 
 class RoutineAssignment(Base):
-    """A quien va dirigida la bateria: todo el equipo, un grupo o un jugador."""
+    """A quien va dirigida la batería: todo el equipo, un grupo o un jugador."""
 
     __tablename__ = "routine_assignments"
 

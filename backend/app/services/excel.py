@@ -1,4 +1,4 @@
-"""Generacion del reporte .xlsx con las cargas registradas."""
+"""Generación del reporte .xlsx con las cargas registradas."""
 
 from datetime import date
 from io import BytesIO
@@ -13,10 +13,10 @@ from app.models import Exercise, Routine, RoutineExercise, SetLog, User
 
 HEADERS = [
     "Fecha",
-    "Bateria",
+    "Batería",
     "Jugador",
     "Ejercicio",
-    "Categoria",
+    "Categoría",
     "Serie",
     "Kg",
     "Reps hechas",
@@ -122,7 +122,7 @@ def build_report(
 def _add_summary_sheet(workbook: Workbook, rows: list[tuple]) -> None:
     """Volumen total (kg x reps) y carga maxima por jugador y ejercicio."""
     summary = workbook.create_sheet("Resumen")
-    headers = ["Jugador", "Ejercicio", "Series", "Kg maximo", "Kg medio", "Volumen (kg x reps)"]
+    headers = ["Jugador", "Ejercicio", "Series", "Kg máximo", "Kg medio", "Volumen (kg x reps)"]
     summary.append(headers)
     for cell in summary[1]:
         cell.fill = HEADER_FILL

@@ -10,7 +10,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 CREDENTIALS_ERROR = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Sesion no valida o caducada",
+    detail="Sesión no válida o caducada",
     headers={"WWW-Authenticate": "Bearer"},
 )
 
@@ -36,6 +36,6 @@ def get_current_coach(user: User = Depends(get_current_user)) -> User:
     if user.role != ROLE_COACH:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo el entrenador puede acceder a esta seccion",
+            detail="Solo el entrenador puede acceder a esta sección",
         )
     return user

@@ -1,4 +1,4 @@
-"""Flujo completo: el entrenador da de alta la sesion y el jugador registra cargas."""
+"""Flujo completo: el entrenador da de alta la sesión y el jugador registra cargas."""
 
 from datetime import date, timedelta
 
@@ -66,11 +66,11 @@ def test_la_bateria_solo_la_ve_el_grupo_asignado(client: TestClient, equipo: dic
 def test_registrar_y_corregir_cargas(client: TestClient, equipo: dict):
     item_id = equipo["rutina"]["items"][0]["id"]
 
-    for numero, kg, reps in [(1, 60, 8), (2, 65, 8), (3, 70, 6)]:
+    for número, kg, reps in [(1, 60, 8), (2, 65, 8), (3, 70, 6)]:
         response = client.post(
             "/api/logs",
             headers=equipo["portero"],
-            json={"routine_exercise_id": item_id, "set_number": numero, "load_kg": kg, "reps": reps},
+            json={"routine_exercise_id": item_id, "set_number": número, "load_kg": kg, "reps": reps},
         )
         assert response.status_code == 200
 

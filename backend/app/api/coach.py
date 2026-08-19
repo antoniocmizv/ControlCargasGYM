@@ -46,7 +46,7 @@ def _load_groups(db: Session, group_ids: list[int]) -> list[Group]:
         return []
     groups = db.scalars(select(Group).where(Group.id.in_(group_ids))).all()
     if len(groups) != len(set(group_ids)):
-        raise HTTPException(status_code=400, detail="Algun grupo indicado no existe")
+        raise HTTPException(status_code=400, detail="Algún grupo indicado no existe")
     return list(groups)
 
 
@@ -191,21 +191,21 @@ def delete_exercise(exercise_id: int, db: Session = Depends(get_db)):
     db.commit()
 
 
-# ---------------- Baterias ----------------
+# ---------------- Baterías ----------------
 def _apply_routine_payload(db: Session, routine: Routine, payload: RoutineIn) -> None:
     routine.name = payload.name.strip()
     routine.session_date = payload.session_date
     routine.notes = payload.notes
 
     if not payload.items:
-        raise HTTPException(status_code=400, detail="La bateria necesita al menos un ejercicio")
+        raise HTTPException(status_code=400, detail="La batería necesita al menos un ejercicio")
     if not payload.assignments:
-        raise HTTPException(status_code=400, detail="Indica a quien va dirigida la bateria")
+        raise HTTPException(status_code=400, detail="Indica a quién va dirigida la batería")
 
     exercise_ids = {item.exercise_id for item in payload.items}
     found = db.scalars(select(Exercise.id).where(Exercise.id.in_(exercise_ids))).all()
     if len(found) != len(exercise_ids):
-        raise HTTPException(status_code=400, detail="Algun ejercicio indicado no existe")
+        raise HTTPException(status_code=400, detail="Algún ejercicio indicado no existe")
 
     routine.items = [
         RoutineExercise(
@@ -224,13 +224,13 @@ def _apply_routine_payload(db: Session, routine: Routine, payload: RoutineIn) ->
 def _build_assignment(db: Session, payload: AssignmentIn) -> RoutineAssignment:
     if payload.target_type == TARGET_GROUP:
         if payload.group_id is None or db.get(Group, payload.group_id) is None:
-            raise HTTPException(status_code=400, detail="Grupo no valido en la asignacion")
+            raise HTTPException(status_code=400, detail="Grupo no válido en la asignación")
         return RoutineAssignment(target_type=TARGET_GROUP, group_id=payload.group_id)
 
     if payload.target_type == TARGET_PLAYER:
         player = db.get(User, payload.user_id) if payload.user_id else None
         if player is None or player.role != ROLE_PLAYER:
-            raise HTTPException(status_code=400, detail="Jugador no valido en la asignacion")
+            raise HTTPException(status_code=400, detail="Jugador no válido en la asignación")
         return RoutineAssignment(target_type=TARGET_PLAYER, user_id=payload.user_id)
 
     return RoutineAssignment(target_type=payload.target_type)
@@ -277,7 +277,7 @@ def create_routine(
 def get_routine(routine_id: int, db: Session = Depends(get_db)):
     routine = db.get(Routine, routine_id)
     if routine is None:
-        raise HTTPException(status_code=404, detail="Bateria no encontrada")
+        raise HTTPException(status_code=404, detail="Batería no encontrada")
     return routine
 
 
@@ -285,7 +285,7 @@ def get_routine(routine_id: int, db: Session = Depends(get_db)):
 def update_routine(routine_id: int, payload: RoutineIn, db: Session = Depends(get_db)):
     routine = db.get(Routine, routine_id)
     if routine is None:
-        raise HTTPException(status_code=404, detail="Bateria no encontrada")
+        raise HTTPException(status_code=404, detail="Batería no encontrada")
     _apply_routine_payload(db, routine, payload)
     db.commit()
     db.refresh(routine)
@@ -299,10 +299,10 @@ def duplicate_routine(
     db: Session = Depends(get_db),
     coach: User = Depends(get_current_coach),
 ):
-    """Copia una bateria a otra fecha: el caso mas habitual del dia a dia."""
+    """Copia una batería a otra fecha: el caso más habitual del día a día."""
     original = db.get(Routine, routine_id)
     if original is None:
-        raise HTTPException(status_code=404, detail="Bateria no encontrada")
+        raise HTTPException(status_code=404, detail="Batería no encontrada")
 
     copy = Routine(
         name=original.name,
@@ -339,17 +339,17 @@ def duplicate_routine(
 def delete_routine(routine_id: int, db: Session = Depends(get_db)):
     routine = db.get(Routine, routine_id)
     if routine is None:
-        raise HTTPException(status_code=404, detail="Bateria no encontrada")
+        raise HTTPException(status_code=404, detail="Batería no encontrada")
     db.delete(routine)
     db.commit()
 
 
 @router.get("/routines/{routine_id}/progress", response_model=RoutineProgress)
 def routine_progress(routine_id: int, db: Session = Depends(get_db)):
-    """Cuantas series lleva registradas cada jugador de esta bateria."""
+    """Cuántas series lleva registradas cada jugador de esta batería."""
     routine = db.get(Routine, routine_id)
     if routine is None:
-        raise HTTPException(status_code=404, detail="Bateria no encontrada")
+        raise HTTPException(status_code=404, detail="Batería no encontrada")
 
     item_ids = [item.id for item in routine.items]
     total_sets = sum(item.sets for item in routine.items)

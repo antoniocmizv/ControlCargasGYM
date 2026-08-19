@@ -9,7 +9,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_secret(secret: str) -> str:
-    """Hashea un PIN o una contrasena."""
+    """Hashea un PIN o una contraseña."""
     return pwd_context.hash(secret)
 
 

@@ -18,7 +18,7 @@ BASE_EXERCISES = [
     ("Dominadas", "Espalda"),
     ("Remo con barra", "Espalda"),
     ("Press militar", "Hombro"),
-    ("Hip thrust", "Gluteo"),
+    ("Hip thrust", "Glúteo"),
     ("Plancha abdominal", "Core"),
 ]
 

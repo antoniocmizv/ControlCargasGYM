@@ -22,12 +22,12 @@ router = APIRouter(tags=["jugador"])
 
 def _require_player(user: User) -> User:
     if user.role != ROLE_PLAYER:
-        raise HTTPException(status_code=403, detail="Esta seccion es para jugadores")
+        raise HTTPException(status_code=403, detail="Esta sección es para jugadores")
     return user
 
 
 def _last_performance(db: Session, user_id: int, exercise_id: int, before: date) -> LastPerformance | None:
-    """Mejor carga del jugador en ese ejercicio en la sesion anterior mas reciente."""
+    """Mejor carga del jugador en ese ejercicio en la sesión anterior más reciente."""
     row = db.execute(
         select(Routine.session_date, SetLog.load_kg, SetLog.reps)
         .join(RoutineExercise, RoutineExercise.id == SetLog.routine_exercise_id)
@@ -97,7 +97,7 @@ def my_routines(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Ultimas sesiones asignadas al jugador, para poder rellenar una anterior."""
+    """Últimas sesiones asignadas al jugador, para poder rellenar una anterior."""
     _require_player(user)
     stmt = (
         routines_for_player_stmt(user)
@@ -123,13 +123,13 @@ def save_log(payload: SetLogIn, db: Session = Depends(get_db), user: User = Depe
 
     item = db.get(RoutineExercise, payload.routine_exercise_id)
     if item is None:
-        raise HTTPException(status_code=404, detail="Ejercicio de la bateria no encontrado")
+        raise HTTPException(status_code=404, detail="Ejercicio de la batería no encontrado")
     if payload.set_number > item.sets:
-        raise HTTPException(status_code=400, detail="Numero de serie fuera de rango")
+        raise HTTPException(status_code=400, detail="Número de serie fuera de rango")
 
     routine = get_player_routine_for_date(db, user, item.routine.session_date)
     if routine is None or routine.id != item.routine_id:
-        raise HTTPException(status_code=403, detail="Esta bateria no esta asignada a ti")
+        raise HTTPException(status_code=403, detail="Esta batería no está asignada a ti")
 
     log = db.scalars(
         select(SetLog).where(

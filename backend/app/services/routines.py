@@ -1,4 +1,4 @@
-"""Logica compartida para resolver que rutinas ve cada jugador."""
+"""Lógica compartida para resolver que rutinas ve cada jugador."""
 
 from datetime import date
 
