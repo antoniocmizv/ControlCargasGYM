@@ -1,0 +1,32 @@
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?define SECRET_KEY en el fichero .env}
+      DATABASE_URL: sqlite:////data/cargas.db
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-720}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      COACH_USERNAME: ${COACH_USERNAME:-entrenador}
+      COACH_PASSWORD: ${COACH_PASSWORD:?define COACH_PASSWORD en el fichero .env}
+      COACH_NAME: ${COACH_NAME:-Entrenador}
+    volumes:
+      - cargas-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  cargas-data:
