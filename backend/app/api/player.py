@@ -1,15 +1,19 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
-from app.models import ROLE_PLAYER, Routine, RoutineExercise, SetLog, User
+from app.models import ROLE_PLAYER, Exercise, Routine, RoutineExercise, SetLog, User
 from app.schemas import (
     ExerciseOut,
+    ExerciseProgress,
+    ExerciseProgressPoint,
+    ExerciseProgressSummary,
     LastPerformance,
+    MyRoutineRow,
     PlayerRoutine,
     PlayerRoutineExercise,
     SetLogIn,
@@ -99,13 +103,13 @@ def routines_today(
     ]
 
 
-@router.get("/routines/mine", response_model=list[dict])
+@router.get("/routines/mine", response_model=list[MyRoutineRow])
 def my_routines(
-    limit: int = Query(default=14, ge=1, le=60),
+    limit: int = Query(default=30, ge=1, le=120),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Últimas sesiones asignadas al jugador, para poder rellenar una anterior."""
+    """Sesiones asignadas al jugador, marcando las que le quedan por rellenar."""
     _require_player(user)
     stmt = (
         routines_for_player_stmt(user)
@@ -113,15 +117,111 @@ def my_routines(
         .limit(limit)
         .options(selectinload(Routine.items))
     )
+    routines = list(db.scalars(stmt).all())
+
+    item_ids = [item.id for routine in routines for item in routine.items]
+    registradas: dict[int, int] = {}
+    if item_ids:
+        filas = db.execute(
+            select(RoutineExercise.routine_id, func.count(SetLog.id))
+            .join(SetLog, SetLog.routine_exercise_id == RoutineExercise.id)
+            .where(SetLog.user_id == user.id, RoutineExercise.id.in_(item_ids))
+            .group_by(RoutineExercise.routine_id)
+        ).all()
+        registradas = {routine_id: total for routine_id, total in filas}
+
     return [
-        {
-            "id": routine.id,
-            "name": routine.name,
-            "session_date": routine.session_date.isoformat(),
-            "exercise_count": len(routine.items),
-        }
-        for routine in db.scalars(stmt).all()
+        MyRoutineRow(
+            id=routine.id,
+            name=routine.name,
+            session_date=routine.session_date,
+            exercise_count=len(routine.items),
+            total_sets=sum(item.sets for item in routine.items),
+            logged_sets=registradas.get(routine.id, 0),
+            pending=registradas.get(routine.id, 0) < sum(item.sets for item in routine.items),
+        )
+        for routine in routines
     ]
+
+
+@router.get("/progress/exercises", response_model=list[ExerciseProgressSummary])
+def my_exercises(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Ejercicios en los que el jugador ya ha registrado algo, con su evolución."""
+    _require_player(user)
+
+    filas = db.execute(
+        select(
+            Exercise,
+            Routine.session_date,
+            func.max(SetLog.load_kg),
+        )
+        .join(RoutineExercise, RoutineExercise.exercise_id == Exercise.id)
+        .join(SetLog, SetLog.routine_exercise_id == RoutineExercise.id)
+        .join(Routine, Routine.id == RoutineExercise.routine_id)
+        .where(SetLog.user_id == user.id)
+        .group_by(Exercise.id, Routine.session_date)
+        .order_by(Exercise.name, Routine.session_date)
+    ).all()
+
+    por_ejercicio: dict[int, dict] = {}
+    for exercise, session_date, mejor in filas:
+        entrada = por_ejercicio.setdefault(
+            exercise.id, {"exercise": exercise, "cargas": [], "fechas": []}
+        )
+        entrada["cargas"].append(float(mejor))
+        entrada["fechas"].append(session_date)
+
+    return [
+        ExerciseProgressSummary(
+            exercise=ExerciseOut.model_validate(entrada["exercise"]),
+            sessions=len(entrada["cargas"]),
+            best_load_kg=max(entrada["cargas"]),
+            latest_load_kg=entrada["cargas"][-1],
+            first_load_kg=entrada["cargas"][0],
+        )
+        for entrada in por_ejercicio.values()
+    ]
+
+
+@router.get("/progress/exercises/{exercise_id}", response_model=ExerciseProgress)
+def my_exercise_progress(
+    exercise_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+):
+    """Evolución sesión a sesión del jugador en un ejercicio."""
+    _require_player(user)
+
+    exercise = db.get(Exercise, exercise_id)
+    if exercise is None:
+        raise HTTPException(status_code=404, detail="Ejercicio no encontrado")
+
+    filas = db.execute(
+        select(
+            Routine.session_date,
+            Routine.name,
+            func.max(SetLog.load_kg),
+            func.sum(SetLog.load_kg * func.coalesce(SetLog.reps, 0)),
+            func.count(SetLog.id),
+        )
+        .join(RoutineExercise, RoutineExercise.routine_id == Routine.id)
+        .join(SetLog, SetLog.routine_exercise_id == RoutineExercise.id)
+        .where(SetLog.user_id == user.id, RoutineExercise.exercise_id == exercise_id)
+        .group_by(Routine.session_date, Routine.name)
+        .order_by(Routine.session_date)
+    ).all()
+
+    return ExerciseProgress(
+        exercise=ExerciseOut.model_validate(exercise),
+        points=[
+            ExerciseProgressPoint(
+                session_date=fecha,
+                routine_name=nombre,
+                best_load_kg=float(mejor),
+                total_volume=float(volumen or 0),
+                sets=series,
+            )
+            for fecha, nombre, mejor, volumen, series in filas
+        ],
+    )
 
 
 @router.post("/logs", response_model=SetLogOut)

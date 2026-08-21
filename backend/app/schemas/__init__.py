@@ -185,6 +185,37 @@ class PlayerRoutine(BaseModel):
     items: list[PlayerRoutineExercise] = []
 
 
+class MyRoutineRow(BaseModel):
+    id: int
+    name: str
+    session_date: date
+    exercise_count: int
+    total_sets: int
+    logged_sets: int
+    pending: bool
+
+
+class ExerciseProgressPoint(BaseModel):
+    session_date: date
+    routine_name: str
+    best_load_kg: float
+    total_volume: float
+    sets: int
+
+
+class ExerciseProgress(BaseModel):
+    exercise: ExerciseOut
+    points: list[ExerciseProgressPoint] = []
+
+
+class ExerciseProgressSummary(BaseModel):
+    exercise: ExerciseOut
+    sessions: int
+    best_load_kg: float
+    latest_load_kg: float
+    first_load_kg: float
+
+
 class PlayerProgressRow(BaseModel):
     player_id: int
     player_name: str
@@ -195,6 +226,35 @@ class PlayerProgressRow(BaseModel):
 class RoutineProgress(BaseModel):
     routine: RoutineSummary
     rows: list[PlayerProgressRow] = []
+
+
+class LiveSetLog(BaseModel):
+    set_number: int
+    load_kg: float
+    reps: int | None
+
+
+class LiveExerciseRow(BaseModel):
+    routine_exercise_id: int
+    exercise_name: str
+    sets: int
+    target_reps: int | None
+    logs: list[LiveSetLog] = []
+    best_load_kg: float | None = None
+
+
+class LivePlayerRow(BaseModel):
+    player_id: int
+    player_name: str
+    logged_sets: int
+    total_sets: int
+    exercises: list[LiveExerciseRow] = []
+
+
+class RoutineLive(BaseModel):
+    routine: RoutineSummary
+    total_sets: int
+    players: list[LivePlayerRow] = []
 
 
 Token.model_rebuild()
