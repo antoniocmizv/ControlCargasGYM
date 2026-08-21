@@ -1,6 +1,6 @@
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import AppShell from '@/components/AppShell.vue'
 import ExerciseCard from '@/components/ExerciseCard.vue'
@@ -11,14 +11,27 @@ import { useWorkoutStore } from '@/stores/workout'
 const auth = useAuthStore()
 const workout = useWorkoutStore()
 const router = useRouter()
+const route = useRoute()
 
-const today = computed(() =>
-  new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+const hoyIso = () => new Date().toLocaleDateString('sv-SE') // AAAA-MM-DD en local
+
+/** El día que se está rellenando: el de la URL o, si no lo hay, hoy. */
+const dia = computed(() => route.params.date || hoyIso())
+const esHoy = computed(() => dia.value === hoyIso())
+
+const fechaLarga = computed(() =>
+  new Date(`${dia.value}T00:00:00`).toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long'
+  })
 )
 
 /** Con una sola batería se muestra su nombre; con varias, el resumen del día. */
 const headline = computed(() =>
-  workout.routines.length === 1 ? workout.routines[0].name : `${workout.routines.length} baterías hoy`
+  workout.routines.length === 1
+    ? workout.routines[0].name
+    : `${workout.routines.length} baterías ${esHoy.value ? 'hoy' : 'ese día'}`
 )
 
 const progress = computed(() =>
@@ -31,9 +44,12 @@ const firstPendingId = computed(
 )
 
 onMounted(() => {
-  workout.loadToday()
+  workout.loadDay(dia.value)
   window.addEventListener('online', workout.flushQueue)
 })
+
+// Cambiar de día desde el historial recarga sin desmontar la vista.
+watch(dia, (valor) => workout.loadDay(valor))
 
 onUnmounted(() => {
   window.removeEventListener('online', workout.flushQueue)
@@ -51,15 +67,35 @@ function logout() {
 </script>
 
 <template>
-  <AppShell :title="auth.user?.name || 'Mi sesión'" :subtitle="today">
+  <AppShell
+    :title="auth.user?.name || 'Mi sesión'"
+    :subtitle="fechaLarga"
+    :back="esHoy ? null : '/mis-sesiones'"
+  >
     <template #actions>
+      <RouterLink to="/progresion" class="btn-ghost h-11 w-11 !px-0" aria-label="Mi progresión">
+        📈
+      </RouterLink>
       <RouterLink to="/mis-sesiones" class="btn-ghost h-11 w-11 !px-0" aria-label="Mis sesiones">
         🗓
       </RouterLink>
-      <button type="button" class="btn-ghost h-11 w-11 !px-0" aria-label="Salir" @click="logout">
+      <button
+        v-if="esHoy"
+        type="button"
+        class="btn-ghost h-11 w-11 !px-0"
+        aria-label="Salir"
+        @click="logout"
+      >
         ⏻
       </button>
     </template>
+
+    <p
+      v-if="!esHoy"
+      class="mb-3 rounded-xl bg-brand-600/15 px-4 py-3 text-sm text-brand-200"
+    >
+      📅 Estás rellenando una sesión de otro día. Se guarda igual que la de hoy.
+    </p>
 
     <p
       v-if="workout.pendingCount"
@@ -76,13 +112,13 @@ function logout() {
       title="No hemos podido cargar la sesión"
       :message="workout.error"
     >
-      <button type="button" class="btn-primary mt-2" @click="workout.loadToday()">Reintentar</button>
+      <button type="button" class="btn-primary mt-2" @click="workout.loadDay(dia)">Reintentar</button>
     </StateBlock>
 
     <StateBlock
       v-else-if="!workout.routines.length"
       icon="😴"
-      title="Hoy no tienes batería asignada"
+      :title="esHoy ? 'Hoy no tienes batería asignada' : 'Ese día no tenías batería asignada'"
       message="Cuando el entrenador dé de alta la sesión aparecerá aquí."
     >
       <RouterLink to="/mis-sesiones" class="btn-ghost mt-2">Ver sesiones anteriores</RouterLink>
@@ -94,7 +130,9 @@ function logout() {
           <div class="min-w-0">
             <h2 class="truncate text-lg font-bold">{{ headline }}</h2>
             <p class="text-sm text-slate-400">
-              {{ workout.allItems.length }} ejercicios · {{ workout.totalSets }} series
+              {{ workout.allItems.length }}
+              {{ workout.allItems.length === 1 ? 'ejercicio' : 'ejercicios' }}
+              · {{ workout.totalSets }} {{ workout.totalSets === 1 ? 'serie' : 'series' }}
             </p>
           </div>
           <span

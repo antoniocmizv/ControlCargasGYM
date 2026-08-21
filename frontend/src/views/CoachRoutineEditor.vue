@@ -114,11 +114,18 @@ function move(index, delta) {
   items.value = copy
 }
 
-function toggle(list, value) {
-  const index = list.value.indexOf(value)
-  if (index === -1) list.value = [...list.value, value]
-  else list.value = list.value.filter((entry) => entry !== value)
+/**
+ * La plantilla desenvuelve los refs, asi que el ref hay que tocarlo aqui:
+ * pasarlo como argumento desde el `@click` entregaba el array pelado.
+ */
+function toggleSeleccion(seleccion, value) {
+  seleccion.value = seleccion.value.includes(value)
+    ? seleccion.value.filter((entry) => entry !== value)
+    : [...seleccion.value, value]
 }
+
+const toggleGroup = (id) => toggleSeleccion(selectedGroups, id)
+const togglePlayer = (id) => toggleSeleccion(selectedPlayers, id)
 
 function buildAssignments() {
   if (target.value === 'all') return [{ target_type: 'all' }]
@@ -233,7 +240,7 @@ async function save() {
                 ? 'border-brand-500 bg-brand-600/20 text-brand-200'
                 : 'border-slate-700 text-slate-400'
             "
-            @click="toggle(selectedGroups, group.id)"
+            @click="toggleGroup(group.id)"
           >
             {{ group.name }}
           </button>
@@ -254,7 +261,7 @@ async function save() {
                 ? 'border-brand-500 bg-brand-600/20 text-brand-200'
                 : 'border-slate-700 text-slate-400'
             "
-            @click="toggle(selectedPlayers, player.id)"
+            @click="togglePlayer(player.id)"
           >
             {{ player.name }}
           </button>

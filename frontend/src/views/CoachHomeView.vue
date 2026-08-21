@@ -13,7 +13,6 @@ const router = useRouter()
 const routines = ref([])
 const loading = ref(true)
 const error = ref('')
-const progress = ref(null)
 const busy = ref(false)
 
 const todayIso = new Date().toISOString().slice(0, 10)
@@ -37,16 +36,6 @@ async function load() {
 }
 
 onMounted(load)
-
-async function showProgress(routine) {
-  progress.value = { routine, rows: null }
-  try {
-    progress.value = await api.get(`/coach/routines/${routine.id}/progress`)
-  } catch (err) {
-    error.value = err.message
-    progress.value = null
-  }
-}
 
 async function duplicateTo(routine) {
   const date = window.prompt('Copiar esta batería al día (AAAA-MM-DD):', todayIso)
@@ -104,7 +93,7 @@ function logout() {
       </RouterLink>
     </nav>
 
-    <RouterLink to="/panel/batería/nueva" class="btn-primary mb-5 w-full">
+    <RouterLink to="/panel/bateria/nueva" class="btn-primary mb-5 w-full">
       + Dar de alta una sesión
     </RouterLink>
 
@@ -135,12 +124,15 @@ function logout() {
               </div>
             </div>
             <div class="mt-3 flex gap-2">
-              <RouterLink :to="`/panel/batería/${routine.id}`" class="btn-ghost flex-1 !text-sm">
+              <RouterLink :to="`/panel/bateria/${routine.id}`" class="btn-ghost flex-1 !text-sm">
                 Editar
               </RouterLink>
-              <button type="button" class="btn-ghost flex-1 !text-sm" @click="showProgress(routine)">
-                Progreso
-              </button>
+              <RouterLink
+                :to="`/panel/bateria/${routine.id}/seguimiento`"
+                class="btn-ghost flex-1 !text-sm"
+              >
+                Seguimiento
+              </RouterLink>
               <button
                 type="button"
                 class="btn-ghost !px-3"
@@ -173,9 +165,12 @@ function logout() {
               {{ formatDate(routine.session_date) }} · {{ routine.exercise_count }} ejercicios
             </p>
             <div class="mt-2 flex gap-2">
-              <button type="button" class="btn-ghost flex-1 !text-sm" @click="showProgress(routine)">
-                Progreso
-              </button>
+              <RouterLink
+                :to="`/panel/bateria/${routine.id}/seguimiento`"
+                class="btn-ghost flex-1 !text-sm"
+              >
+                Seguimiento
+              </RouterLink>
               <button
                 type="button"
                 class="btn-ghost !px-3"
@@ -191,47 +186,5 @@ function logout() {
       </section>
     </template>
 
-    <!-- Progreso de una batería -->
-    <div
-      v-if="progress"
-      class="fixed inset-0 z-40 flex items-end bg-black/70 p-0 sm:items-center sm:p-4"
-      @click.self="progress = null"
-    >
-      <div class="max-h-[80vh] w-full overflow-y-auto rounded-t-2xl bg-slate-900 p-5 sm:mx-auto sm:max-w-md sm:rounded-2xl">
-        <div class="mb-4 flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h3 class="truncate text-lg font-bold">{{ progress.routine.name }}</h3>
-            <p class="text-sm first-letter:uppercase text-slate-400">
-              {{ formatDate(progress.routine.session_date) }}
-            </p>
-          </div>
-          <button type="button" class="btn-ghost !px-3" @click="progress = null">✕</button>
-        </div>
-
-        <p v-if="!progress.rows" class="py-6 text-center text-slate-400">Cargando…</p>
-        <p v-else-if="!progress.rows.length" class="py-6 text-center text-sm text-slate-400">
-          No hay jugadores asignados a esta batería.
-        </p>
-        <ul v-else class="space-y-2">
-          <li
-            v-for="row in progress.rows"
-            :key="row.player_id"
-            class="flex items-center gap-3 rounded-xl bg-slate-800/60 px-3 py-2.5"
-          >
-            <span class="min-w-0 flex-1 truncate text-sm font-semibold">{{ row.player_name }}</span>
-            <span class="h-1.5 w-20 overflow-hidden rounded-full bg-slate-700">
-              <span
-                class="block h-full rounded-full"
-                :class="row.logged_sets >= row.total_sets ? 'bg-emerald-500' : 'bg-brand-500'"
-                :style="{ width: `${row.total_sets ? (row.logged_sets / row.total_sets) * 100 : 0}%` }"
-              />
-            </span>
-            <span class="w-12 shrink-0 text-right text-xs tabular-nums text-slate-400">
-              {{ row.logged_sets }}/{{ row.total_sets }}
-            </span>
-          </li>
-        </ul>
-      </div>
-    </div>
   </AppShell>
 </template>

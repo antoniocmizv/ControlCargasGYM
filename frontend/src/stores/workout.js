@@ -33,7 +33,7 @@ export const useWorkoutStore = defineStore('workout', () => {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.value))
   }
 
-  async function loadToday(day) {
+  async function loadDay(day) {
     loading.value = true
     error.value = ''
     try {
@@ -154,7 +154,7 @@ export const useWorkoutStore = defineStore('workout', () => {
     totalSets,
     loggedSets,
     isComplete,
-    loadToday,
+    loadDay,
     saveSet,
     flushQueue,
     isSaving,

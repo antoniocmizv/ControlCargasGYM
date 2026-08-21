@@ -30,7 +30,11 @@ from app.schemas import (
     PlayerCreate,
     PlayerProgressRow,
     PlayerUpdate,
+    LiveExerciseRow,
+    LivePlayerRow,
+    LiveSetLog,
     RoutineIn,
+    RoutineLive,
     RoutineOut,
     RoutineProgress,
     RoutineSummary,
@@ -425,3 +429,64 @@ def routine_progress(routine_id: int, db: Session = Depends(get_db)):
             for player in players_assigned_to(db, routine)
         ],
     )
+
+
+@router.get("/routines/{routine_id}/live", response_model=RoutineLive)
+def routine_live(routine_id: int, db: Session = Depends(get_db)):
+    """Los kg y reps que lleva cada jugador, para seguir la sesión sobre la marcha."""
+    routine = db.get(Routine, routine_id)
+    if routine is None:
+        raise HTTPException(status_code=404, detail="Batería no encontrada")
+
+    jugadores = players_assigned_to(db, routine)
+    item_ids = [item.id for item in routine.items]
+    total_sets = sum(item.sets for item in routine.items)
+
+    # Un único viaje a la base de datos para todas las cargas de la batería.
+    por_jugador: dict[int, dict[int, list[SetLog]]] = {}
+    if item_ids and jugadores:
+        logs = db.scalars(
+            select(SetLog)
+            .where(
+                SetLog.routine_exercise_id.in_(item_ids),
+                SetLog.user_id.in_([jugador.id for jugador in jugadores]),
+            )
+            .order_by(SetLog.set_number)
+        ).all()
+        for log in logs:
+            por_jugador.setdefault(log.user_id, {}).setdefault(log.routine_exercise_id, []).append(log)
+
+    filas = []
+    for jugador in jugadores:
+        del_jugador = por_jugador.get(jugador.id, {})
+        ejercicios = []
+        registradas = 0
+        for item in routine.items:
+            logs = del_jugador.get(item.id, [])
+            registradas += len(logs)
+            ejercicios.append(
+                LiveExerciseRow(
+                    routine_exercise_id=item.id,
+                    exercise_name=item.exercise.name,
+                    sets=item.sets,
+                    target_reps=item.target_reps,
+                    logs=[
+                        LiveSetLog(
+                            set_number=log.set_number, load_kg=float(log.load_kg), reps=log.reps
+                        )
+                        for log in logs
+                    ],
+                    best_load_kg=max((float(log.load_kg) for log in logs), default=None),
+                )
+            )
+        filas.append(
+            LivePlayerRow(
+                player_id=jugador.id,
+                player_name=jugador.name,
+                logged_sets=registradas,
+                total_sets=total_sets,
+                exercises=ejercicios,
+            )
+        )
+
+    return RoutineLive(routine=_routine_summary(db, routine), total_sets=total_sets, players=filas)

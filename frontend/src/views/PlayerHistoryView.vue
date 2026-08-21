@@ -4,14 +4,10 @@ import { onMounted, ref } from 'vue'
 import { api } from '@/api/client'
 import AppShell from '@/components/AppShell.vue'
 import StateBlock from '@/components/StateBlock.vue'
-import { useWorkoutStore } from '@/stores/workout'
 
-const workout = useWorkoutStore()
 const sessions = ref([])
 const loading = ref(true)
 const error = ref('')
-const openDay = ref(null)
-
 onMounted(async () => {
   try {
     sessions.value = await api.get('/routines/mine')
@@ -24,11 +20,6 @@ onMounted(async () => {
 
 const formatDate = (iso) =>
   new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
-
-async function openSession(session) {
-  openDay.value = session.session_date
-  await workout.loadToday(session.session_date)
-}
 </script>
 
 <template>
@@ -46,16 +37,21 @@ async function openSession(session) {
       <RouterLink
         v-for="session in sessions"
         :key="session.id"
-        to="/hoy"
+        :to="`/sesion/${session.session_date}`"
         class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 transition active:scale-[0.98]"
-        @click="openSession(session)"
       >
         <span class="w-24 shrink-0 text-sm font-semibold first-letter:uppercase text-brand-300">
           {{ formatDate(session.session_date) }}
         </span>
         <span class="min-w-0 flex-1">
           <span class="block truncate font-semibold">{{ session.name }}</span>
-          <span class="text-xs text-slate-500">{{ session.exercise_count }} ejercicios</span>
+          <span class="text-xs" :class="session.pending ? 'text-amber-400' : 'text-slate-500'">
+            <template v-if="session.pending">⏳ sin rellenar</template>
+            <template v-else>
+              {{ session.exercise_count }}
+              {{ session.exercise_count === 1 ? 'ejercicio' : 'ejercicios' }}
+            </template>
+          </span>
         </span>
         <span class="shrink-0 text-slate-600">›</span>
       </RouterLink>

@@ -13,6 +13,19 @@ const routes = [
     meta: { requiresAuth: true, role: 'player' }
   },
   {
+    // Sesión de un día concreto: en la URL para que sobreviva a una recarga.
+    path: '/sesion/:date',
+    name: 'player-session',
+    component: () => import('@/views/PlayerHomeView.vue'),
+    meta: { requiresAuth: true, role: 'player' }
+  },
+  {
+    path: '/progresion',
+    name: 'player-progress',
+    component: () => import('@/views/PlayerProgressView.vue'),
+    meta: { requiresAuth: true, role: 'player' }
+  },
+  {
     path: '/mis-sesiones',
     name: 'player-history',
     component: () => import('@/views/PlayerHistoryView.vue'),
@@ -25,15 +38,21 @@ const routes = [
     meta: { requiresAuth: true, role: 'coach' }
   },
   {
-    path: '/panel/batería/nueva',
+    path: '/panel/bateria/nueva',
     name: 'coach-routine-new',
     component: () => import('@/views/CoachRoutineEditor.vue'),
     meta: { requiresAuth: true, role: 'coach' }
   },
   {
-    path: '/panel/batería/:id',
+    path: '/panel/bateria/:id',
     name: 'coach-routine-edit',
     component: () => import('@/views/CoachRoutineEditor.vue'),
+    meta: { requiresAuth: true, role: 'coach' }
+  },
+  {
+    path: '/panel/bateria/:id/seguimiento',
+    name: 'coach-live',
+    component: () => import('@/views/CoachLiveView.vue'),
     meta: { requiresAuth: true, role: 'coach' }
   },
   {
