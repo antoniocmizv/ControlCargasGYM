@@ -149,9 +149,12 @@ def my_exercises(db: Session = Depends(get_db), user: User = Depends(get_current
     """Ejercicios en los que el jugador ya ha registrado algo, con su evolución."""
     _require_player(user)
 
+    # Se agrupa por rutina, no por fecha: dos baterías el mismo día son dos
+    # sesiones distintas y colapsarlas falseaba el total y la primera carga.
     filas = db.execute(
         select(
             Exercise,
+            Routine.id,
             Routine.session_date,
             func.max(SetLog.load_kg),
         )
@@ -159,17 +162,14 @@ def my_exercises(db: Session = Depends(get_db), user: User = Depends(get_current
         .join(SetLog, SetLog.routine_exercise_id == RoutineExercise.id)
         .join(Routine, Routine.id == RoutineExercise.routine_id)
         .where(SetLog.user_id == user.id)
-        .group_by(Exercise.id, Routine.session_date)
-        .order_by(Exercise.name, Routine.session_date)
+        .group_by(Exercise, Routine.id, Routine.session_date)
+        .order_by(Exercise.name, Routine.session_date, Routine.id)
     ).all()
 
     por_ejercicio: dict[int, dict] = {}
-    for exercise, session_date, mejor in filas:
-        entrada = por_ejercicio.setdefault(
-            exercise.id, {"exercise": exercise, "cargas": [], "fechas": []}
-        )
+    for exercise, _routine_id, _session_date, mejor in filas:
+        entrada = por_ejercicio.setdefault(exercise.id, {"exercise": exercise, "cargas": []})
         entrada["cargas"].append(float(mejor))
-        entrada["fechas"].append(session_date)
 
     return [
         ExerciseProgressSummary(
@@ -196,6 +196,7 @@ def my_exercise_progress(
 
     filas = db.execute(
         select(
+            Routine.id,
             Routine.session_date,
             Routine.name,
             func.max(SetLog.load_kg),
@@ -205,8 +206,8 @@ def my_exercise_progress(
         .join(RoutineExercise, RoutineExercise.routine_id == Routine.id)
         .join(SetLog, SetLog.routine_exercise_id == RoutineExercise.id)
         .where(SetLog.user_id == user.id, RoutineExercise.exercise_id == exercise_id)
-        .group_by(Routine.session_date, Routine.name)
-        .order_by(Routine.session_date)
+        .group_by(Routine.id, Routine.session_date, Routine.name)
+        .order_by(Routine.session_date, Routine.id)
     ).all()
 
     return ExerciseProgress(
@@ -219,7 +220,7 @@ def my_exercise_progress(
                 total_volume=float(volumen or 0),
                 sets=series,
             )
-            for fecha, nombre, mejor, volumen, series in filas
+            for _routine_id, fecha, nombre, mejor, volumen, series in filas
         ],
     )
 

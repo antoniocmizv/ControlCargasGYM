@@ -434,7 +434,14 @@ def routine_progress(routine_id: int, db: Session = Depends(get_db)):
 @router.get("/routines/{routine_id}/live", response_model=RoutineLive)
 def routine_live(routine_id: int, db: Session = Depends(get_db)):
     """Los kg y reps que lleva cada jugador, para seguir la sesión sobre la marcha."""
-    routine = db.get(Routine, routine_id)
+    routine = db.scalars(
+        select(Routine)
+        .where(Routine.id == routine_id)
+        .options(
+            selectinload(Routine.items).selectinload(RoutineExercise.exercise),
+            selectinload(Routine.assignments),
+        )
+    ).first()
     if routine is None:
         raise HTTPException(status_code=404, detail="Batería no encontrada")
 

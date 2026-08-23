@@ -14,7 +14,7 @@ const routes = [
   },
   {
     // Sesión de un día concreto: en la URL para que sobreviva a una recarga.
-    path: '/sesion/:date',
+    path: '/sesion/:date(\\d{4}-\\d{2}-\\d{2})',
     name: 'player-session',
     component: () => import('@/views/PlayerHomeView.vue'),
     meta: { requiresAuth: true, role: 'player' }

@@ -1,6 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue'
 
+import { diaMes } from '@/utils/fechas'
+
 const props = defineProps({
   points: { type: Array, required: true },
   label: { type: String, default: 'Peso máximo' }
@@ -46,8 +48,7 @@ const marcasY = computed(() => {
   }))
 })
 
-const dia = (iso) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+
 
 /** Solo se etiquetan los extremos: un número por punto satura el gráfico. */
 const destacados = computed(() => {
@@ -140,7 +141,7 @@ const destacados = computed(() => {
         fill="#64748b"
         font-size="8"
       >
-        {{ dia(coords[0].session_date) }}
+        {{ diaMes(coords[0].session_date) }}
       </text>
       <text
         v-if="coords.length > 1"
@@ -150,7 +151,7 @@ const destacados = computed(() => {
         fill="#64748b"
         font-size="8"
       >
-        {{ dia(coords[coords.length - 1].session_date) }}
+        {{ diaMes(coords[coords.length - 1].session_date) }}
       </text>
     </svg>
 
@@ -160,7 +161,7 @@ const destacados = computed(() => {
     >
       <template v-if="hover">
         <strong class="text-slate-100">{{ hover.best_load_kg }} kg</strong>
-        · {{ dia(hover.session_date) }} · {{ hover.sets }} series
+        · {{ diaMes(hover.session_date) }} · {{ hover.sets }} series
         <template v-if="hover.total_volume"> · volumen {{ Math.round(hover.total_volume) }} kg</template>
       </template>
       <template v-else>Toca un punto para ver el detalle de esa sesión.</template>
