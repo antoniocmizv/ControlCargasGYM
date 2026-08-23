@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import adjuntos, auth, coach, export, player
+from app.api import adjuntos, auth, coach, export, player, staff
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.migrations import run_migrations
@@ -37,6 +37,7 @@ app.include_router(player.router, prefix="/api")
 app.include_router(coach.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
 app.include_router(adjuntos.router, prefix="/api")
+app.include_router(staff.router, prefix="/api")
 
 
 @app.get("/api/health", tags=["infra"])

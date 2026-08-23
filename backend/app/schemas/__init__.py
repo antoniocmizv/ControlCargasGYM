@@ -60,6 +60,31 @@ class PlayerUpdate(BaseModel):
     group_ids: list[int] | None = None
 
 
+class StaffOut(ORMModel):
+    id: int
+    name: str
+    username: str | None
+    role: str
+    is_active: bool
+
+
+class StaffCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    username: str = Field(min_length=3, max_length=80, pattern=r"^[a-zA-Z0-9._-]+$")
+    password: str = Field(min_length=8, max_length=128)
+
+
+class StaffUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+    is_active: bool | None = None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 # ---------- Ejercicios ----------
 class ExerciseIn(BaseModel):
     name: str = Field(min_length=1, max_length=160)

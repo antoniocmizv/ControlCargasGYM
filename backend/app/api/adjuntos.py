@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 from app.api.deps import get_current_coach, get_current_user
 from app.core.database import get_db
-from app.models import ROLE_COACH, Routine, RoutineAttachment, User
+from app.models import ROLES_STAFF, Routine, RoutineAttachment, User
 from app.schemas import AttachmentOut
 from app.services import adjuntos as almacen
 from app.services.routines import player_can_access_routine
@@ -20,7 +20,7 @@ def _routine_visible(db: Session, routine_id: int, user: User) -> Routine:
     if routine is None:
         raise HTTPException(status_code=404, detail="Batería no encontrada")
 
-    if user.role == ROLE_COACH:
+    if user.role in ROLES_STAFF:
         return routine
     if not player_can_access_routine(db, user, routine_id):
         raise HTTPException(status_code=403, detail="Esta batería no está asignada a ti")

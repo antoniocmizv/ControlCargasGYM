@@ -17,8 +17,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
+ROLE_ADMIN = "admin"   # entrenador principal: además gestiona a los demás
 ROLE_COACH = "coach"
 ROLE_PLAYER = "player"
+
+# Los dos roles con acceso al panel. El esquema no cambia: `role` ya era texto,
+# así que basta con admitir un valor más y evitamos un ALTER TABLE.
+ROLES_STAFF = (ROLE_ADMIN, ROLE_COACH)
 
 TARGET_ALL = "all"
 TARGET_GROUP = "group"
