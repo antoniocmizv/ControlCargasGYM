@@ -134,6 +134,13 @@ class RoutineOut(ORMModel):
     assignments: list[AssignmentOut] = []
 
 
+class AttachmentOut(ORMModel):
+    id: int
+    filename: str
+    size_bytes: int
+    created_at: datetime
+
+
 class RoutineSummary(ORMModel):
     id: int
     name: str

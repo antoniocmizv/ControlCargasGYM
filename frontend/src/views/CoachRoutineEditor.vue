@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api } from '@/api/client'
+import { pesoLegible } from '@/composables/useAdjuntos'
 import AppShell from '@/components/AppShell.vue'
 
 const route = useRoute()
@@ -27,6 +28,46 @@ const pickerSearch = ref('')
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
+
+// Los adjuntos van contra una batería que ya existe, así que en una nueva
+// aparecen solo después de guardarla.
+const ficheroInput = ref(null)
+const subiendo = ref(false)
+const adjuntos = ref([])
+
+async function cargarAdjuntos() {
+  if (!routineId.value) return
+  adjuntos.value = await api.get(`/routines/${routineId.value}/adjuntos`).catch(() => [])
+}
+
+async function subirPdf(evento) {
+  const fichero = evento.target.files?.[0]
+  if (!fichero) return
+
+  subiendo.value = true
+  error.value = ''
+  try {
+    const form = new FormData()
+    form.append('file', fichero)
+    await api.upload(`/coach/routines/${routineId.value}/adjuntos`, form)
+    await cargarAdjuntos()
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    subiendo.value = false
+    if (ficheroInput.value) ficheroInput.value.value = ''
+  }
+}
+
+async function borrarAdjunto(adjunto) {
+  if (!window.confirm(`¿Quitar «${adjunto.filename}» de esta batería?`)) return
+  try {
+    await api.delete(`/coach/adjuntos/${adjunto.id}`)
+    await cargarAdjuntos()
+  } catch (err) {
+    error.value = err.message
+  }
+}
 
 const byCategory = computed(() => {
   const term = pickerSearch.value.trim().toLowerCase()
@@ -53,7 +94,10 @@ onMounted(async () => {
     groups.value = groupList
     players.value = playerList
 
-    if (isEdit.value) await loadRoutine()
+    if (isEdit.value) {
+      await loadRoutine()
+      await cargarAdjuntos()
+    }
   } catch (err) {
     error.value = err.message
   } finally {
@@ -266,6 +310,58 @@ async function save() {
             {{ player.name }}
           </button>
         </div>
+      </section>
+
+      <!-- PDF de la sesión -->
+      <section class="card">
+        <h2 class="mb-1 font-bold">PDF de la sesión</h2>
+        <p class="mb-3 text-sm text-slate-400">
+          Lo verán todos los jugadores que tengan esta batería asignada.
+        </p>
+
+        <p v-if="!isEdit" class="text-sm text-slate-500">
+          Guarda primero la batería y podrás adjuntarle el PDF.
+        </p>
+
+        <template v-else>
+          <div v-if="adjuntos.length" class="mb-3 space-y-2">
+            <div
+              v-for="adjunto in adjuntos"
+              :key="adjunto.id"
+              class="flex items-center gap-3 rounded-xl bg-slate-800/60 px-3 py-2.5"
+            >
+              <span class="text-lg">📄</span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-medium">{{ adjunto.filename }}</span>
+                <span class="text-xs text-slate-500">{{ pesoLegible(adjunto.size_bytes) }}</span>
+              </span>
+              <button
+                type="button"
+                class="btn-danger !min-h-0 !px-2.5 !py-1 !text-xs"
+                @click="borrarAdjunto(adjunto)"
+              >
+                Quitar
+              </button>
+            </div>
+          </div>
+
+          <input
+            ref="ficheroInput"
+            type="file"
+            accept="application/pdf,.pdf"
+            class="hidden"
+            @change="subirPdf"
+          />
+          <button
+            type="button"
+            class="btn-ghost w-full !text-sm"
+            :disabled="subiendo"
+            @click="ficheroInput?.click()"
+          >
+            {{ subiendo ? 'Subiendo…' : adjuntos.length ? '+ Añadir otro PDF' : '+ Subir un PDF' }}
+          </button>
+          <p class="mt-2 text-xs text-slate-500">Máximo 10 MB por fichero.</p>
+        </template>
       </section>
 
       <!-- Ejercicios -->

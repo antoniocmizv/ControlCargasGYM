@@ -5,6 +5,7 @@ services:
     environment:
       SECRET_KEY: ${SECRET_KEY:?define SECRET_KEY en el fichero .env}
       DATABASE_URL: sqlite:////data/cargas.db
+      ATTACHMENTS_DIR: /data/adjuntos
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-720}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
       COACH_USERNAME: ${COACH_USERNAME:-entrenador}

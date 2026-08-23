@@ -3,14 +3,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, coach, export, player
+from app.api import adjuntos, auth, coach, export, player
 from app.core.config import settings
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import SessionLocal
+from app.core.migrations import run_migrations
 from app.seed import seed
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    run_migrations()
     with SessionLocal() as db:
         seed(db)
     yield
@@ -35,6 +36,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(player.router, prefix="/api")
 app.include_router(coach.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
+app.include_router(adjuntos.router, prefix="/api")
 
 
 @app.get("/api/health", tags=["infra"])

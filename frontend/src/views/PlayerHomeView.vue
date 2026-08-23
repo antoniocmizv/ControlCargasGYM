@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import AppShell from '@/components/AppShell.vue'
 import ExerciseCard from '@/components/ExerciseCard.vue'
+import RoutineAttachments from '@/components/RoutineAttachments.vue'
 import StateBlock from '@/components/StateBlock.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkoutStore } from '@/stores/workout'
@@ -165,6 +166,8 @@ function logout() {
         <p v-if="routine.notes" class="mb-3 px-1 text-sm italic text-slate-400">
           {{ routine.notes }}
         </p>
+
+        <RoutineAttachments :routine-id="routine.id" class="mb-3" />
 
         <div class="space-y-3">
           <ExerciseCard

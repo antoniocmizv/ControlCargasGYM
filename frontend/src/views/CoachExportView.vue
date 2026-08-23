@@ -6,6 +6,7 @@ import AppShell from '@/components/AppShell.vue'
 
 const players = ref([])
 const playerId = ref('')
+const porSesion = ref(true)
 const dateFrom = ref('')
 const dateTo = ref('')
 const busy = ref(false)
@@ -37,7 +38,8 @@ async function download() {
     const response = await api.download('/export/excel', {
       date_from: dateFrom.value,
       date_to: dateTo.value,
-      player_id: playerId.value
+      player_id: playerId.value,
+      por_sesion: porSesion.value ? 'true' : ''
     })
     const blob = await response.blob()
     const url = URL.createObjectURL(blob)
@@ -88,6 +90,16 @@ async function download() {
             {{ player.name }}
           </option>
         </select>
+      </label>
+
+      <label class="flex cursor-pointer items-start gap-3 rounded-xl bg-slate-800/60 px-4 py-3">
+        <input v-model="porSesion" type="checkbox" class="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
+        <span class="text-sm">
+          <span class="font-medium">Añadir una hoja por sesión</span>
+          <span class="mt-0.5 block text-xs text-slate-500">
+            Cada sesión en su propia pestaña, con los jugadores en filas y una columna por serie.
+          </span>
+        </span>
       </label>
 
       <button type="button" class="btn-primary w-full" :disabled="busy" @click="download">

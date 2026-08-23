@@ -19,7 +19,7 @@ function readToken() {
   return localStorage.getItem('cargas_token')
 }
 
-async function request(path, { method = 'GET', body, params, raw = false } = {}) {
+async function request(path, { method = 'GET', body, params, raw = false, form } = {}) {
   const url = new URL(`${BASE_URL}${path}`, window.location.origin)
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== null && value !== undefined && value !== '') url.searchParams.set(key, value)
@@ -28,6 +28,7 @@ async function request(path, { method = 'GET', body, params, raw = false } = {})
   const headers = {}
   const token = readToken()
   if (token) headers.Authorization = `Bearer ${token}`
+  // Con FormData el navegador pone el Content-Type con su boundary.
   if (body !== undefined) headers['Content-Type'] = 'application/json'
 
   let response
@@ -35,7 +36,7 @@ async function request(path, { method = 'GET', body, params, raw = false } = {})
     response = await fetch(url, {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined
+      body: form ?? (body !== undefined ? JSON.stringify(body) : undefined)
     })
   } catch {
     throw new ApiError('Sin conexión con el servidor', 0)
@@ -69,5 +70,6 @@ export const api = {
   patch: (path, body) => request(path, { method: 'PATCH', body }),
   put: (path, body) => request(path, { method: 'PUT', body }),
   delete: (path) => request(path, { method: 'DELETE' }),
-  download: (path, params) => request(path, { params, raw: true })
+  download: (path, params) => request(path, { params, raw: true }),
+  upload: (path, form) => request(path, { method: 'POST', form })
 }

@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 720
 
     database_url: str = "sqlite:///./cargas.db"
+    # Los PDF viven junto a la base para que una sola copia lo cubra todo.
+    attachments_dir: str = "./data/adjuntos"
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
 
     coach_username: str = "entrenador"

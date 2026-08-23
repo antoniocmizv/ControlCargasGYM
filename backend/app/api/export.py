@@ -19,9 +19,10 @@ def export_excel(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     player_id: int | None = Query(default=None),
+    por_sesion: bool = Query(default=False, description="Añade una hoja por cada sesión"),
     db: Session = Depends(get_db),
 ):
-    buffer = build_report(db, date_from, date_to, player_id)
+    buffer = build_report(db, date_from, date_to, player_id, por_sesion=por_sesion)
     filename = f"cargas_{datetime.now():%Y%m%d_%H%M}.xlsx"
     return StreamingResponse(
         buffer,

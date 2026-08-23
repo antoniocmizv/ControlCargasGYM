@@ -92,6 +92,11 @@ class Routine(Base):
     assignments: Mapped[list["RoutineAssignment"]] = relationship(
         back_populates="routine", cascade="all, delete-orphan"
     )
+    attachments: Mapped[list["RoutineAttachment"]] = relationship(
+        back_populates="routine",
+        cascade="all, delete-orphan",
+        order_by="RoutineAttachment.created_at",
+    )
 
 
 class RoutineExercise(Base):
@@ -125,6 +130,26 @@ class RoutineAssignment(Base):
     routine: Mapped[Routine] = relationship(back_populates="assignments")
     group: Mapped[Group | None] = relationship()
     user: Mapped[User | None] = relationship()
+
+
+class RoutineAttachment(Base):
+    """PDF adjunto a una batería. El fichero vive en disco; aquí solo su ficha."""
+
+    __tablename__ = "routine_attachments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    routine_id: Mapped[int] = mapped_column(
+        ForeignKey("routines.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # El que trae el fichero: solo se muestra y se usa al descargar, nunca en disco.
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    # El que genera el servidor: es el que existe realmente en /data/adjuntos.
+    stored_name: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    uploaded_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now, nullable=False)
+
+    routine: Mapped["Routine"] = relationship(back_populates="attachments")
 
 
 class SetLog(Base):

@@ -4,7 +4,9 @@ from collections.abc import Iterator
 
 import pytest
 
-os.environ["DATABASE_URL"] = f"sqlite:///{tempfile.mkdtemp()}/test.db"
+_TMP = tempfile.mkdtemp()
+os.environ["DATABASE_URL"] = f"sqlite:///{_TMP}/test.db"
+os.environ["ATTACHMENTS_DIR"] = f"{_TMP}/adjuntos"
 os.environ["SECRET_KEY"] = "clave-de-test"
 os.environ["COACH_USERNAME"] = "entrenador"
 os.environ["COACH_PASSWORD"] = "test1234"
