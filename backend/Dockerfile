@@ -9,6 +9,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+# Sin estos dos, Alembic no encuentra las migraciones dentro del contenedor y
+# el arranque falla con "Path doesn't exist: '/app/migrations'".
+COPY alembic.ini .
+COPY migrations ./migrations
 
 # La base de datos SQLite vive en un volumen para sobrevivir a los redespliegues.
 RUN mkdir -p /data
