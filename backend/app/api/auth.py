@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.core.security import create_access_token, verify_secret
-from app.models import ROLE_COACH, ROLE_PLAYER, User
+from app.models import ROLE_PLAYER, ROLES_STAFF, User
 from app.schemas import CoachLogin, PlayerLogin, PlayerOption, Token, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -38,7 +38,7 @@ def login_player(payload: PlayerLogin, db: Session = Depends(get_db)):
 
 @router.post("/login/coach", response_model=Token)
 def login_coach(payload: CoachLogin, db: Session = Depends(get_db)):
-    stmt = select(User).where(User.username == payload.username, User.role == ROLE_COACH)
+    stmt = select(User).where(User.username == payload.username, User.role.in_(ROLES_STAFF))
     user = db.scalars(stmt).first()
     if user is None or not user.is_active:
         raise BAD_CREDENTIALS

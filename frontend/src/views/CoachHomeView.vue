@@ -73,12 +73,15 @@ function logout() {
 <template>
   <AppShell title="Panel del entrenador" :subtitle="auth.user?.name">
     <template #actions>
+      <RouterLink to="/panel/cuenta" class="btn-ghost h-11 w-11 !px-0" aria-label="Mi cuenta">
+        ⚙️
+      </RouterLink>
       <button type="button" class="btn-ghost h-11 w-11 !px-0" aria-label="Salir" @click="logout">
         ⏻
       </button>
     </template>
 
-    <nav class="mb-5 grid grid-cols-3 gap-2">
+    <nav class="mb-5 grid grid-cols-4 gap-2">
       <RouterLink to="/panel/jugadores" class="card flex flex-col items-center gap-1 !p-3 text-center">
         <span class="text-2xl">👥</span>
         <span class="text-xs font-semibold">Jugadores</span>
@@ -90,6 +93,13 @@ function logout() {
       <RouterLink to="/panel/exportar" class="card flex flex-col items-center gap-1 !p-3 text-center">
         <span class="text-2xl">📊</span>
         <span class="text-xs font-semibold">Exportar</span>
+      </RouterLink>
+      <RouterLink
+        :to="auth.isAdmin ? '/panel/entrenadores' : '/panel/cuenta'"
+        class="card flex flex-col items-center gap-1 !p-3 text-center"
+      >
+        <span class="text-2xl">{{ auth.isAdmin ? '🧑‍🏫' : '⚙️' }}</span>
+        <span class="text-xs font-semibold">{{ auth.isAdmin ? 'Entrenadores' : 'Mi cuenta' }}</span>
       </RouterLink>
     </nav>
 

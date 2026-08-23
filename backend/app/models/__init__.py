@@ -1,6 +1,8 @@
 from app.models.entities import (
+    ROLE_ADMIN,
     ROLE_COACH,
     ROLE_PLAYER,
+    ROLES_STAFF,
     TARGET_ALL,
     TARGET_GROUP,
     TARGET_PLAYER,
@@ -16,8 +18,10 @@ from app.models.entities import (
 )
 
 __all__ = [
+    "ROLE_ADMIN",
     "ROLE_COACH",
     "ROLE_PLAYER",
+    "ROLES_STAFF",
     "TARGET_ALL",
     "TARGET_GROUP",
     "TARGET_PLAYER",
