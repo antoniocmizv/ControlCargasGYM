@@ -19,7 +19,9 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref(loadStoredUser())
 
   const isLogged = computed(() => Boolean(token.value && user.value))
-  const isCoach = computed(() => user.value?.role === 'coach')
+  // El entrenador principal ('admin') es también entrenador a todos los efectos.
+  const isCoach = computed(() => ['coach', 'admin'].includes(user.value?.role))
+  const isAdmin = computed(() => user.value?.role === 'admin')
   const isPlayer = computed(() => user.value?.role === 'player')
 
   function persist(data) {
@@ -44,5 +46,5 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(USER_KEY)
   }
 
-  return { token, user, isLogged, isCoach, isPlayer, loginPlayer, loginCoach, logout }
+  return { token, user, isLogged, isCoach, isAdmin, isPlayer, loginPlayer, loginCoach, logout }
 })

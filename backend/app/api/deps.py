@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
-from app.models import ROLE_COACH, User
+from app.models import ROLE_ADMIN, ROLES_STAFF, User
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -33,9 +33,20 @@ def get_current_user(
 
 
 def get_current_coach(user: User = Depends(get_current_user)) -> User:
-    if user.role != ROLE_COACH:
+    """Cualquier entrenador, principal o no."""
+    if user.role not in ROLES_STAFF:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo el entrenador puede acceder a esta sección",
+        )
+    return user
+
+
+def get_current_admin(user: User = Depends(get_current_coach)) -> User:
+    """Solo el entrenador principal gestiona a los demás entrenadores."""
+    if user.role != ROLE_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo el entrenador principal puede gestionar entrenadores",
         )
     return user
