@@ -7,25 +7,24 @@ import ExerciseCard from '@/components/ExerciseCard.vue'
 import StateBlock from '@/components/StateBlock.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkoutStore } from '@/stores/workout'
+import { esFechaValida, fechaLarga, hoyIso } from '@/utils/fechas'
 
 const auth = useAuthStore()
 const workout = useWorkoutStore()
 const router = useRouter()
 const route = useRoute()
 
-const hoyIso = () => new Date().toLocaleDateString('sv-SE') // AAAA-MM-DD en local
+/**
+ * El día que se está rellenando: el de la URL o, si no lo hay, hoy.
+ * Una fecha inválida en la URL cae a hoy en vez de romper la pantalla.
+ */
+const dia = computed(() => {
+  const enLaUrl = route.params.date
+  return esFechaValida(enLaUrl) ? enLaUrl : hoyIso()
+})
 
-/** El día que se está rellenando: el de la URL o, si no lo hay, hoy. */
-const dia = computed(() => route.params.date || hoyIso())
 const esHoy = computed(() => dia.value === hoyIso())
-
-const fechaLarga = computed(() =>
-  new Date(`${dia.value}T00:00:00`).toLocaleDateString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long'
-  })
-)
+const fechaTitulo = computed(() => fechaLarga(dia.value))
 
 /** Con una sola batería se muestra su nombre; con varias, el resumen del día. */
 const headline = computed(() =>
@@ -69,7 +68,7 @@ function logout() {
 <template>
   <AppShell
     :title="auth.user?.name || 'Mi sesión'"
-    :subtitle="fechaLarga"
+    :subtitle="fechaTitulo"
     :back="esHoy ? null : '/mis-sesiones'"
   >
     <template #actions>

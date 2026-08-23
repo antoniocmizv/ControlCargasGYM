@@ -4,6 +4,7 @@ import { onMounted, ref } from 'vue'
 import { api } from '@/api/client'
 import AppShell from '@/components/AppShell.vue'
 import StateBlock from '@/components/StateBlock.vue'
+import { fechaCorta } from '@/utils/fechas'
 
 const sessions = ref([])
 const loading = ref(true)
@@ -18,8 +19,7 @@ onMounted(async () => {
   }
 })
 
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
+
 </script>
 
 <template>
@@ -41,7 +41,7 @@ const formatDate = (iso) =>
         class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 transition active:scale-[0.98]"
       >
         <span class="w-24 shrink-0 text-sm font-semibold first-letter:uppercase text-brand-300">
-          {{ formatDate(session.session_date) }}
+          {{ fechaCorta(session.session_date) }}
         </span>
         <span class="min-w-0 flex-1">
           <span class="block truncate font-semibold">{{ session.name }}</span>

@@ -6,6 +6,7 @@ import { api } from '@/api/client'
 import AppShell from '@/components/AppShell.vue'
 import StateBlock from '@/components/StateBlock.vue'
 import { useAuthStore } from '@/stores/auth'
+import { fechaLarga } from '@/utils/fechas'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -20,8 +21,7 @@ const todayIso = new Date().toISOString().slice(0, 10)
 const upcoming = computed(() => routines.value.filter((r) => r.session_date >= todayIso))
 const past = computed(() => routines.value.filter((r) => r.session_date < todayIso))
 
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+
 
 async function load() {
   loading.value = true
@@ -117,7 +117,7 @@ function logout() {
             <div class="flex items-start gap-3">
               <div class="min-w-0 flex-1">
                 <p class="truncate font-bold">{{ routine.name }}</p>
-                <p class="text-sm first-letter:uppercase text-brand-300">{{ formatDate(routine.session_date) }}</p>
+                <p class="text-sm first-letter:uppercase text-brand-300">{{ fechaLarga(routine.session_date) }}</p>
                 <p class="mt-0.5 text-xs text-slate-500">
                   {{ routine.exercise_count }} ejercicios · {{ routine.assigned_players }} jugadores
                 </p>
@@ -162,7 +162,7 @@ function logout() {
           <article v-for="routine in past" :key="routine.id" class="card !p-3">
             <p class="truncate font-semibold">{{ routine.name }}</p>
             <p class="text-xs text-slate-500 first-letter:uppercase">
-              {{ formatDate(routine.session_date) }} · {{ routine.exercise_count }} ejercicios
+              {{ fechaLarga(routine.session_date) }} · {{ routine.exercise_count }} ejercicios
             </p>
             <div class="mt-2 flex gap-2">
               <RouterLink

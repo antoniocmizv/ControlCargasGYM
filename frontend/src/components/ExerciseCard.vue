@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 
 import NumberStepper from '@/components/NumberStepper.vue'
+import { fechaNumerica } from '@/utils/fechas'
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -96,7 +97,7 @@ function repeatPrevious(row) {
         v-if="item.last_performance"
         class="mb-3 rounded-lg bg-slate-800/60 px-3 py-2 text-xs text-slate-400"
       >
-        📈 Última vez ({{ new Date(item.last_performance.session_date).toLocaleDateString('es-ES') }}):
+        📈 Última vez ({{ fechaNumerica(item.last_performance.session_date) }}):
         <strong class="text-slate-200">{{ item.last_performance.best_load_kg }} kg</strong>
         <template v-if="item.last_performance.reps"> × {{ item.last_performance.reps }} reps</template>
       </p>

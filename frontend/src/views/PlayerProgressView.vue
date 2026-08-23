@@ -5,6 +5,7 @@ import { api } from '@/api/client'
 import AppShell from '@/components/AppShell.vue'
 import ProgressChart from '@/components/ProgressChart.vue'
 import StateBlock from '@/components/StateBlock.vue'
+import { fechaNumerica } from '@/utils/fechas'
 
 const ejercicios = ref([])
 const seleccionado = ref(null)
@@ -136,7 +137,7 @@ async function elegir(resumen) {
                 class="border-b border-slate-800/60 last:border-0"
               >
                 <td class="py-2 whitespace-nowrap text-slate-300">
-                  {{ new Date(`${punto.session_date}T00:00:00`).toLocaleDateString('es-ES') }}
+                  {{ fechaNumerica(punto.session_date) }}
                 </td>
                 <td class="max-w-[8rem] truncate py-2 text-slate-400">{{ punto.routine_name }}</td>
                 <td class="py-2 text-right font-semibold tabular-nums">{{ punto.best_load_kg }} kg</td>
