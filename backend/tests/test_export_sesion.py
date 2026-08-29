@@ -1,4 +1,4 @@
-"""Hojas por sesión: la parrilla que sustituye a la plantilla de papel."""
+"""Exportar una sesión concreta: la parrilla que sustituye a la plantilla de papel."""
 
 from datetime import date, timedelta
 from io import BytesIO
@@ -69,27 +69,34 @@ def _descarga(client: TestClient, coach_headers: dict, **params):
     return load_workbook(BytesIO(respuesta.content))
 
 
-def test_sin_pedirlo_el_excel_no_cambia(client: TestClient, coach_headers: dict, sesion_con_cargas):
-    libro = _descarga(client, coach_headers)
-    assert libro.sheetnames == ["Cargas", "Resumen"]
-
-
-def test_la_hoja_de_sesion_lleva_fecha_y_nombre(
+def test_la_exportacion_general_no_trae_hojas_de_sesion(
     client: TestClient, coach_headers: dict, sesion_con_cargas
 ):
-    libro = _descarga(client, coach_headers, por_sesion="true", date_from=str(DIA), date_to=str(DIA))
+    """Por rango de fechas solo salen el detalle y el resumen."""
+    libro = _descarga(client, coach_headers, date_from=str(DIA), date_to=str(DIA))
+    assert libro.sheetnames == ["Cargas", "Resumen"]
 
-    assert "Cargas" in libro.sheetnames and "Resumen" in libro.sheetnames
-    hoja = next(n for n in libro.sheetnames if n.startswith(f"{DIA:%Y-%m-%d}"))
-    assert "Parrilla" in hoja
+    completa = _descarga(client, coach_headers)
+    assert completa.sheetnames == ["Cargas", "Resumen"]
+
+
+def test_al_exportar_una_sesion_sale_su_parrilla(
+    client: TestClient, coach_headers: dict, sesion_con_cargas
+):
+    libro = _descarga(client, coach_headers, routine_id=sesion_con_cargas["routine"]["id"])
+
+    assert libro.sheetnames[:2] == ["Cargas", "Resumen"]
+    assert len(libro.sheetnames) == 3, "una sola parrilla, la de esa sesión"
+    hoja = libro.sheetnames[2]
+    assert hoja.startswith(f"{DIA:%Y-%m-%d}") and "Parrilla" in hoja
     assert len(hoja) <= 31, "Excel no admite nombres de hoja de más de 31 caracteres"
 
 
 def test_la_parrilla_coloca_jugadores_en_filas_y_series_en_columnas(
     client: TestClient, coach_headers: dict, sesion_con_cargas
 ):
-    libro = _descarga(client, coach_headers, por_sesion="true", date_from=str(DIA), date_to=str(DIA))
-    hoja = libro[next(n for n in libro.sheetnames if n.startswith(f"{DIA:%Y-%m-%d}"))]
+    libro = _descarga(client, coach_headers, routine_id=sesion_con_cargas["routine"]["id"])
+    hoja = libro[libro.sheetnames[2]]
 
     assert hoja.cell(row=5, column=1).value == "Jugador"
     assert [hoja.cell(row=5, column=c).value for c in range(2, 7)] == ["S1", "S2", "S3", "S1", "S2"]
@@ -104,8 +111,8 @@ def test_la_parrilla_coloca_jugadores_en_filas_y_series_en_columnas(
 def test_las_series_sin_registrar_salen_marcadas(
     client: TestClient, coach_headers: dict, sesion_con_cargas
 ):
-    libro = _descarga(client, coach_headers, por_sesion="true", date_from=str(DIA), date_to=str(DIA))
-    hoja = libro[next(n for n in libro.sheetnames if n.startswith(f"{DIA:%Y-%m-%d}"))]
+    libro = _descarga(client, coach_headers, routine_id=sesion_con_cargas["routine"]["id"])
+    hoja = libro[libro.sheetnames[2]]
 
     filas = {hoja.cell(row=f, column=1).value: f for f in range(6, 9)}
     marta = [hoja.cell(row=filas["Grid Marta"], column=c).value for c in range(2, 5)]
@@ -122,35 +129,29 @@ def test_filtrar_por_jugador_deja_solo_su_fila(
     libro = _descarga(
         client,
         coach_headers,
-        por_sesion="true",
+        routine_id=sesion_con_cargas["routine"]["id"],
         player_id=ana["id"],
-        date_from=str(DIA),
-        date_to=str(DIA),
     )
-    hoja = libro[next(n for n in libro.sheetnames if n.startswith(f"{DIA:%Y-%m-%d}"))]
+    hoja = libro[libro.sheetnames[2]]
 
     assert hoja.cell(row=6, column=1).value == "Grid Ana"
     assert hoja.cell(row=7, column=1).value is None
 
 
-def test_dos_sesiones_el_mismo_dia_no_chocan_de_nombre(
+def test_solo_salen_las_cargas_de_esa_sesion(
+    client: TestClient, coach_headers: dict, sesion_con_cargas
+):
+    """El detalle también se acota: exportar una sesión no arrastra las demás."""
+    libro = _descarga(client, coach_headers, routine_id=sesion_con_cargas["routine"]["id"])
+    hoja = libro["Cargas"]
+
+    baterias = {fila[1] for fila in hoja.iter_rows(min_row=2, values_only=True) if fila[1]}
+    assert baterias == {"Parrilla"}
+
+
+def test_una_sesion_inexistente_no_rompe_la_exportacion(
     client: TestClient, coach_headers: dict
 ):
-    ejercicio = client.get("/api/coach/exercises", headers=coach_headers).json()[0]
-    dia = HOY - timedelta(days=40)
-    for _ in range(2):
-        client.post(
-            "/api/coach/routines",
-            headers=coach_headers,
-            json={
-                "name": "Repetida",
-                "session_date": str(dia),
-                "items": [{"exercise_id": ejercicio["id"], "sets": 1}],
-                "assignments": [{"target_type": "all"}],
-            },
-        )
-
-    libro = _descarga(client, coach_headers, por_sesion="true", date_from=str(dia), date_to=str(dia))
-    hojas = [n for n in libro.sheetnames if n.startswith(f"{dia:%Y-%m-%d}")]
-    assert len(hojas) == 2
-    assert len(set(hojas)) == 2, "los nombres de hoja deben ser únicos"
+    libro = _descarga(client, coach_headers, routine_id=999999)
+    assert libro.sheetnames == ["Cargas", "Resumen"]
+    assert libro["Cargas"].max_row == 1

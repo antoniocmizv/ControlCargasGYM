@@ -174,6 +174,28 @@ class RoutineSummary(ORMModel):
     assigned_players: int = 0
 
 
+# ---------- Anotaciones del entrenador ----------
+class PrescriptionIn(BaseModel):
+    routine_exercise_id: int
+    user_id: int
+    target_load_kg: float | None = Field(default=None, ge=0, le=1000)
+    note: str | None = Field(default=None, max_length=500)
+
+
+class PrescriptionOut(ORMModel):
+    routine_exercise_id: int
+    user_id: int
+    target_load_kg: float | None
+    note: str | None
+
+
+class MyPrescription(BaseModel):
+    """Lo que el entrenador le marca al jugador en ese ejercicio."""
+
+    target_load_kg: float | None = None
+    note: str | None = None
+
+
 # ---------- Cargas ----------
 class SetLogIn(BaseModel):
     routine_exercise_id: int
@@ -207,6 +229,7 @@ class PlayerRoutineExercise(BaseModel):
     exercise: ExerciseOut
     logs: list[SetLogOut] = []
     last_performance: LastPerformance | None = None
+    prescription: MyPrescription | None = None
 
 
 class PlayerRoutine(BaseModel):
@@ -273,6 +296,8 @@ class LiveExerciseRow(BaseModel):
     target_reps: int | None
     logs: list[LiveSetLog] = []
     best_load_kg: float | None = None
+    target_load_kg: float | None = None
+    note: str | None = None
 
 
 class LivePlayerRow(BaseModel):

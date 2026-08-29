@@ -138,6 +138,13 @@ function logout() {
                 Editar
               </RouterLink>
               <RouterLink
+                :to="`/panel/bateria/${routine.id}/anotaciones`"
+                class="btn-ghost !px-3"
+                aria-label="Anotar pesos por jugador"
+              >
+                🎯
+              </RouterLink>
+              <RouterLink
                 :to="`/panel/bateria/${routine.id}/seguimiento`"
                 class="btn-ghost flex-1 !text-sm"
               >

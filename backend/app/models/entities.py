@@ -119,6 +119,9 @@ class RoutineExercise(Base):
     routine: Mapped[Routine] = relationship(back_populates="items")
     exercise: Mapped[Exercise] = relationship()
     logs: Mapped[list["SetLog"]] = relationship(back_populates="routine_exercise", cascade="all, delete-orphan")
+    prescriptions: Mapped[list["ExercisePrescription"]] = relationship(
+        back_populates="routine_exercise", cascade="all, delete-orphan"
+    )
 
 
 class RoutineAssignment(Base):
@@ -155,6 +158,35 @@ class RoutineAttachment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now, nullable=False)
 
     routine: Mapped["Routine"] = relationship(back_populates="attachments")
+
+
+class ExercisePrescription(Base):
+    """
+    Lo que el entrenador le marca a un jugador concreto en un ejercicio.
+
+    Es la indicación previa ("Ana, en sentadilla haz 80"), distinta del
+    `set_logs`, que es lo que el jugador levantó de verdad.
+    """
+
+    __tablename__ = "exercise_prescriptions"
+    __table_args__ = (
+        UniqueConstraint("routine_exercise_id", "user_id", name="uq_anotacion_jugador"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    routine_exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("routine_exercises.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    target_load_kg: Mapped[float | None] = mapped_column(Numeric(6, 2))
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now, nullable=False)
+
+    routine_exercise: Mapped["RoutineExercise"] = relationship(back_populates="prescriptions")
+    user: Mapped["User"] = relationship()
 
 
 class SetLog(Base):

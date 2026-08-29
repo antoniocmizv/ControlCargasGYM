@@ -68,6 +68,12 @@ const routes = [
     meta: { requiresAuth: true, staff: true }
   },
   {
+    path: '/panel/bateria/:id/anotaciones',
+    name: 'coach-notes',
+    component: () => import('@/views/CoachNotesView.vue'),
+    meta: { requiresAuth: true, staff: true }
+  },
+  {
     path: '/panel/entrenadores',
     name: 'coach-staff',
     component: () => import('@/views/CoachStaffView.vue'),
