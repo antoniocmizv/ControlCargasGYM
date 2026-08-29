@@ -30,9 +30,7 @@ HEADER_FONT = Font(color="FFFFFF", bold=True)
 SUBHEADER_FILL = PatternFill("solid", fgColor="374151")
 HUECO = "—"
 
-# Una hoja por sesión es útil para una semana o un mes; con el histórico entero
-# saldrían cientos de pestañas y el archivo se vuelve imposible de abrir.
-MAX_HOJAS_SESION = 50
+
 
 
 def _fetch_rows(
@@ -40,6 +38,7 @@ def _fetch_rows(
     date_from: date | None,
     date_to: date | None,
     player_id: int | None,
+    routine_id: int | None = None,
 ) -> list[tuple]:
     stmt = (
         select(
@@ -66,6 +65,8 @@ def _fetch_rows(
         stmt = stmt.where(Routine.session_date <= date_to)
     if player_id:
         stmt = stmt.where(SetLog.user_id == player_id)
+    if routine_id is not None:
+        stmt = stmt.where(Routine.id == routine_id)
 
     return list(db.execute(stmt).all())
 
@@ -83,7 +84,7 @@ def build_report(
     date_from: date | None = None,
     date_to: date | None = None,
     player_id: int | None = None,
-    por_sesion: bool = False,
+    routine_id: int | None = None,
 ) -> BytesIO:
     workbook = Workbook()
     detail = workbook.active
@@ -94,7 +95,7 @@ def build_report(
         cell.font = HEADER_FONT
         cell.alignment = Alignment(horizontal="center")
 
-    rows = _fetch_rows(db, date_from, date_to, player_id)
+    rows = _fetch_rows(db, date_from, date_to, player_id, routine_id)
     for row in rows:
         detail.append(
             [
@@ -121,8 +122,10 @@ def build_report(
     _autosize(detail)
 
     _add_summary_sheet(workbook, rows)
-    if por_sesion:
-        _add_session_sheets(workbook, db, date_from, date_to, player_id)
+    # La parrilla solo tiene sentido para una sesión concreta: con un rango
+    # largo salían cientos de pestañas y el archivo era inservible.
+    if routine_id is not None:
+        _add_session_sheet(workbook, db, routine_id, player_id)
 
     buffer = BytesIO()
     workbook.save(buffer)
@@ -186,53 +189,38 @@ def _nombre_de_hoja(usados: set[str], session_date: date, nombre: str) -> str:
     return base[:28] + "..."
 
 
-def _routines_del_periodo(
-    db: Session, date_from: date | None, date_to: date | None
-) -> list[Routine]:
-    stmt = select(Routine).options(
-        selectinload(Routine.items).selectinload(RoutineExercise.exercise),
-        selectinload(Routine.assignments),
-    )
-    if date_from:
-        stmt = stmt.where(Routine.session_date >= date_from)
-    if date_to:
-        stmt = stmt.where(Routine.session_date <= date_to)
-    return list(db.scalars(stmt.order_by(Routine.session_date, Routine.id)).all())
-
-
-def _add_session_sheets(
-    workbook: Workbook,
-    db: Session,
-    date_from: date | None,
-    date_to: date | None,
-    player_id: int | None,
+def _add_session_sheet(
+    workbook: Workbook, db: Session, routine_id: int, player_id: int | None
 ) -> None:
-    """Una hoja por sesión: jugadores en filas, una columna por serie."""
-    routines = _routines_del_periodo(db, date_from, date_to)
-    usados: set[str] = set()
+    """La parrilla de una sesión: jugadores en filas, una columna por serie."""
+    routine = db.scalars(
+        select(Routine)
+        .where(Routine.id == routine_id)
+        .options(
+            selectinload(Routine.items).selectinload(RoutineExercise.exercise),
+            selectinload(Routine.assignments),
+        )
+    ).first()
+    if routine is None or not routine.items:
+        return
 
-    if len(routines) > MAX_HOJAS_SESION:
-        _add_aviso_sheet(workbook, len(routines))
-        routines = routines[-MAX_HOJAS_SESION:]
+    jugadores = players_assigned_to(db, routine)
+    if player_id:
+        jugadores = [j for j in jugadores if j.id == player_id]
+    if not jugadores:
+        return
 
-    for routine in routines:
-        jugadores = players_assigned_to(db, routine)
-        if player_id:
-            jugadores = [j for j in jugadores if j.id == player_id]
-        if not jugadores or not routine.items:
-            continue
+    item_ids = [item.id for item in routine.items]
+    logs = db.scalars(
+        select(SetLog).where(
+            SetLog.routine_exercise_id.in_(item_ids),
+            SetLog.user_id.in_([j.id for j in jugadores]),
+        )
+    ).all()
+    registradas = {(log.user_id, log.routine_exercise_id, log.set_number): log for log in logs}
 
-        item_ids = [item.id for item in routine.items]
-        logs = db.scalars(
-            select(SetLog).where(
-                SetLog.routine_exercise_id.in_(item_ids),
-                SetLog.user_id.in_([j.id for j in jugadores]),
-            )
-        ).all()
-        registradas = {(log.user_id, log.routine_exercise_id, log.set_number): log for log in logs}
-
-        hoja = workbook.create_sheet(_nombre_de_hoja(usados, routine.session_date, routine.name))
-        _escribe_parrilla(hoja, routine, jugadores, registradas)
+    hoja = workbook.create_sheet(_nombre_de_hoja(set(), routine.session_date, routine.name))
+    _escribe_parrilla(hoja, routine, jugadores, registradas)
 
 
 def _escribe_parrilla(hoja, routine: Routine, jugadores: list[User], registradas: dict) -> None:
@@ -295,15 +283,3 @@ def _escribe_parrilla(hoja, routine: Routine, jugadores: list[User], registradas
     ) + 4
     for indice in range(2, columna):
         hoja.column_dimensions[get_column_letter(indice)].width = 7
-
-
-def _add_aviso_sheet(workbook: Workbook, total: int) -> None:
-    hoja = workbook.create_sheet("Aviso", 2)
-    hoja["A1"] = "Demasiadas sesiones en el periodo"
-    hoja["A1"].font = Font(bold=True, size=13)
-    hoja["A3"] = (
-        f"El periodo elegido tiene {total} sesiones y solo se han incluido las "
-        f"{MAX_HOJAS_SESION} más recientes como hoja."
-    )
-    hoja["A4"] = "Acota las fechas para tenerlas todas. El detalle completo sigue en «Cargas»."
-    hoja.column_dimensions["A"].width = 90

@@ -13,6 +13,7 @@ from app.models import (
     TARGET_GROUP,
     TARGET_PLAYER,
     Exercise,
+    ExercisePrescription,
     Group,
     Routine,
     RoutineAssignment,
@@ -449,6 +450,17 @@ def routine_live(routine_id: int, db: Session = Depends(get_db)):
     item_ids = [item.id for item in routine.items]
     total_sets = sum(item.sets for item in routine.items)
 
+    anotaciones: dict[tuple[int, int], ExercisePrescription] = {}
+    if item_ids:
+        anotaciones = {
+            (p.user_id, p.routine_exercise_id): p
+            for p in db.scalars(
+                select(ExercisePrescription).where(
+                    ExercisePrescription.routine_exercise_id.in_(item_ids)
+                )
+            ).all()
+        }
+
     # Un único viaje a la base de datos para todas las cargas de la batería.
     por_jugador: dict[int, dict[int, list[SetLog]]] = {}
     if item_ids and jugadores:
@@ -471,6 +483,7 @@ def routine_live(routine_id: int, db: Session = Depends(get_db)):
         for item in routine.items:
             logs = del_jugador.get(item.id, [])
             registradas += len(logs)
+            anotado = anotaciones.get((jugador.id, item.id))
             ejercicios.append(
                 LiveExerciseRow(
                     routine_exercise_id=item.id,
@@ -484,6 +497,12 @@ def routine_live(routine_id: int, db: Session = Depends(get_db)):
                         for log in logs
                     ],
                     best_load_kg=max((float(log.load_kg) for log in logs), default=None),
+                    target_load_kg=(
+                        float(anotado.target_load_kg)
+                        if anotado and anotado.target_load_kg is not None
+                        else None
+                    ),
+                    note=anotado.note if anotado else None,
                 )
             )
         filas.append(

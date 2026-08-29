@@ -6,13 +6,22 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
-from app.models import ROLE_PLAYER, Exercise, Routine, RoutineExercise, SetLog, User
+from app.models import (
+    ROLE_PLAYER,
+    Exercise,
+    ExercisePrescription,
+    Routine,
+    RoutineExercise,
+    SetLog,
+    User,
+)
 from app.schemas import (
     ExerciseOut,
     ExerciseProgress,
     ExerciseProgressPoint,
     ExerciseProgressSummary,
     LastPerformance,
+    MyPrescription,
     MyRoutineRow,
     PlayerRoutine,
     PlayerRoutineExercise,
@@ -32,6 +41,17 @@ def _require_player(user: User) -> User:
     if user.role != ROLE_PLAYER:
         raise HTTPException(status_code=403, detail="Esta sección es para jugadores")
     return user
+
+
+def _anotacion(prescripcion: ExercisePrescription | None) -> MyPrescription | None:
+    if prescripcion is None:
+        return None
+    return MyPrescription(
+        target_load_kg=float(prescripcion.target_load_kg)
+        if prescripcion.target_load_kg is not None
+        else None,
+        note=prescripcion.note,
+    )
 
 
 def _last_performance(db: Session, user_id: int, exercise_id: int, before: date) -> LastPerformance | None:
@@ -67,6 +87,7 @@ def routines_today(
 
     item_ids = [item.id for routine in routines for item in routine.items]
     logs_by_item: dict[int, list[SetLog]] = {}
+    anotaciones: dict[int, ExercisePrescription] = {}
     if item_ids:
         logs = db.scalars(
             select(SetLog)
@@ -75,6 +96,16 @@ def routines_today(
         ).all()
         for log in logs:
             logs_by_item.setdefault(log.routine_exercise_id, []).append(log)
+
+        anotaciones = {
+            p.routine_exercise_id: p
+            for p in db.scalars(
+                select(ExercisePrescription).where(
+                    ExercisePrescription.user_id == user.id,
+                    ExercisePrescription.routine_exercise_id.in_(item_ids),
+                )
+            ).all()
+        }
 
     return [
         PlayerRoutine(
@@ -95,6 +126,7 @@ def routines_today(
                     last_performance=_last_performance(
                         db, user.id, item.exercise_id, routine.session_date
                     ),
+                    prescription=_anotacion(anotaciones.get(item.id)),
                 )
                 for item in routine.items
             ],

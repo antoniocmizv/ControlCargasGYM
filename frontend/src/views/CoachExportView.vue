@@ -1,51 +1,71 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import { api } from '@/api/client'
 import AppShell from '@/components/AppShell.vue'
+import { fechaLarga } from '@/utils/fechas'
 
+const modo = ref('rango')
 const players = ref([])
+const sesiones = ref([])
 const playerId = ref('')
-const porSesion = ref(true)
+const routineId = ref('')
 const dateFrom = ref('')
 const dateTo = ref('')
 const busy = ref(false)
 const error = ref('')
 const done = ref(false)
 
+const sesionElegida = computed(() =>
+  sesiones.value.find((s) => String(s.id) === String(routineId.value))
+)
+
 onMounted(async () => {
   try {
-    players.value = await api.get('/coach/players')
+    const [jugadores, baterias] = await Promise.all([
+      api.get('/coach/players'),
+      api.get('/coach/routines')
+    ])
+    players.value = jugadores
+    sesiones.value = baterias
   } catch (err) {
     error.value = err.message
   }
 })
 
-/** Atajos: la mayoria de descargas son "la semana" o "el mes". */
+/** Atajos: la mayoría de descargas son «la semana» o «el mes». */
 function setRange(days) {
   const to = new Date()
   const from = new Date()
   from.setDate(to.getDate() - days)
-  dateFrom.value = from.toISOString().slice(0, 10)
-  dateTo.value = to.toISOString().slice(0, 10)
+  dateFrom.value = from.toLocaleDateString('sv-SE')
+  dateTo.value = to.toLocaleDateString('sv-SE')
 }
 
 async function download() {
+  if (modo.value === 'sesion' && !routineId.value) {
+    error.value = 'Elige la sesión que quieres exportar'
+    return
+  }
+
   busy.value = true
   error.value = ''
   done.value = false
   try {
-    const response = await api.download('/export/excel', {
-      date_from: dateFrom.value,
-      date_to: dateTo.value,
-      player_id: playerId.value,
-      por_sesion: porSesion.value ? 'true' : ''
-    })
+    const params =
+      modo.value === 'sesion'
+        ? { routine_id: routineId.value, player_id: playerId.value }
+        : { date_from: dateFrom.value, date_to: dateTo.value, player_id: playerId.value }
+
+    const response = await api.download('/export/excel', params)
     const blob = await response.blob()
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `cargas_${new Date().toISOString().slice(0, 10)}.xlsx`
+    link.download =
+      modo.value === 'sesion' && sesionElegida.value
+        ? `sesion_${sesionElegida.value.session_date}.xlsx`
+        : `cargas_${new Date().toLocaleDateString('sv-SE')}.xlsx`
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -63,24 +83,67 @@ async function download() {
   <AppShell title="Exportar a Excel" subtitle="Descarga las cargas registradas" back="/panel">
     <section class="card space-y-4">
       <div>
-        <span class="label">Período rápido</span>
-        <div class="grid grid-cols-3 gap-2">
-          <button type="button" class="btn-ghost !text-sm" @click="setRange(7)">7 días</button>
-          <button type="button" class="btn-ghost !text-sm" @click="setRange(30)">30 días</button>
-          <button type="button" class="btn-ghost !text-sm" @click="setRange(90)">90 días</button>
+        <span class="label">Qué exportar</span>
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            class="btn !text-sm"
+            :class="modo === 'rango' ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-300'"
+            @click="modo = 'rango'"
+          >
+            Un periodo
+          </button>
+          <button
+            type="button"
+            class="btn !text-sm"
+            :class="modo === 'sesion' ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-300'"
+            @click="modo = 'sesion'"
+          >
+            Una sesión
+          </button>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
+      <!-- Periodo -->
+      <template v-if="modo === 'rango'">
+        <div>
+          <span class="label">Periodo rápido</span>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" class="btn-ghost !text-sm" @click="setRange(7)">7 días</button>
+            <button type="button" class="btn-ghost !text-sm" @click="setRange(30)">30 días</button>
+            <button type="button" class="btn-ghost !text-sm" @click="setRange(90)">90 días</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="label">Desde</span>
+            <input v-model="dateFrom" type="date" class="field" />
+          </label>
+          <label class="block">
+            <span class="label">Hasta</span>
+            <input v-model="dateTo" type="date" class="field" />
+          </label>
+        </div>
+      </template>
+
+      <!-- Sesión concreta -->
+      <template v-else>
         <label class="block">
-          <span class="label">Desde</span>
-          <input v-model="dateFrom" type="date" class="field" />
+          <span class="label">Sesión</span>
+          <select v-model="routineId" class="field">
+            <option value="">Elige una sesión…</option>
+            <option v-for="sesion in sesiones" :key="sesion.id" :value="sesion.id">
+              {{ sesion.session_date }} · {{ sesion.name }}
+            </option>
+          </select>
         </label>
-        <label class="block">
-          <span class="label">Hasta</span>
-          <input v-model="dateTo" type="date" class="field" />
-        </label>
-      </div>
+        <p v-if="sesionElegida" class="-mt-1 text-xs text-slate-500 first-letter:uppercase">
+          {{ fechaLarga(sesionElegida.session_date) }} ·
+          {{ sesionElegida.exercise_count }} ejercicios ·
+          {{ sesionElegida.assigned_players }} jugadores
+        </p>
+      </template>
 
       <label class="block">
         <span class="label">Jugador</span>
@@ -90,16 +153,6 @@ async function download() {
             {{ player.name }}
           </option>
         </select>
-      </label>
-
-      <label class="flex cursor-pointer items-start gap-3 rounded-xl bg-slate-800/60 px-4 py-3">
-        <input v-model="porSesion" type="checkbox" class="mt-0.5 h-5 w-5 shrink-0 accent-brand-600" />
-        <span class="text-sm">
-          <span class="font-medium">Añadir una hoja por sesión</span>
-          <span class="mt-0.5 block text-xs text-slate-500">
-            Cada sesión en su propia pestaña, con los jugadores en filas y una columna por serie.
-          </span>
-        </span>
       </label>
 
       <button type="button" class="btn-primary w-full" :disabled="busy" @click="download">
@@ -113,9 +166,11 @@ async function download() {
     </section>
 
     <p class="mt-4 px-1 text-sm text-slate-500">
-      El archivo trae dos hojas: <strong>Cargas</strong> con el detalle serie a serie y
-      <strong>Resumen</strong> con kg máximo, medio y volumen por jugador y ejercicio. Deja las fechas
-      vacias para exportar todo el histórico.
+      <strong>Un periodo</strong> da dos hojas: <strong>Cargas</strong> con el detalle serie a serie
+      y <strong>Resumen</strong> con kg máximo, medio y volumen. Deja las fechas vacías para todo el
+      histórico.
+      <strong>Una sesión</strong> añade además su parrilla: los jugadores en filas y una columna por
+      serie, con un guion donde nadie registró.
     </p>
   </AppShell>
 </template>

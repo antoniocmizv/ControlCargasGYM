@@ -34,6 +34,9 @@ const error = ref('')
 const ficheroInput = ref(null)
 const subiendo = ref(false)
 const adjuntos = ref([])
+// En una batería nueva todavía no hay id al que adjuntar: el fichero espera
+// aquí y se sube en cuanto se guarda, para no obligar a volver a entrar.
+const pendiente = ref(null)
 
 async function cargarAdjuntos() {
   if (!routineId.value) return
@@ -42,21 +45,31 @@ async function cargarAdjuntos() {
 
 async function subirPdf(evento) {
   const fichero = evento.target.files?.[0]
+  if (ficheroInput.value) ficheroInput.value.value = ''
   if (!fichero) return
+
+  if (!routineId.value) {
+    pendiente.value = fichero
+    error.value = ''
+    return
+  }
 
   subiendo.value = true
   error.value = ''
   try {
-    const form = new FormData()
-    form.append('file', fichero)
-    await api.upload(`/coach/routines/${routineId.value}/adjuntos`, form)
+    await enviarPdf(routineId.value, fichero)
     await cargarAdjuntos()
   } catch (err) {
     error.value = err.message
   } finally {
     subiendo.value = false
-    if (ficheroInput.value) ficheroInput.value.value = ''
   }
+}
+
+async function enviarPdf(id, fichero) {
+  const form = new FormData()
+  form.append('file', fichero)
+  await api.upload(`/coach/routines/${id}/adjuntos`, form)
 }
 
 async function borrarAdjunto(adjunto) {
@@ -202,8 +215,23 @@ async function save() {
       })),
       assignments
     }
-    if (isEdit.value) await api.put(`/coach/routines/${routineId.value}`, payload)
-    else await api.post('/coach/routines', payload)
+    const guardada = isEdit.value
+      ? await api.put(`/coach/routines/${routineId.value}`, payload)
+      : await api.post('/coach/routines', payload)
+
+    // El PDF elegido antes de que la batería existiera se sube ahora. Si algo
+    // falla, la sesión ya está guardada: se avisa en lugar de perderla.
+    if (pendiente.value) {
+      try {
+        await enviarPdf(guardada.id, pendiente.value)
+        pendiente.value = null
+      } catch (err) {
+        error.value = `La sesión se guardó, pero el PDF no: ${err.message}`
+        saving.value = false
+        return
+      }
+    }
+
     router.push('/panel')
   } catch (err) {
     error.value = err.message
@@ -319,49 +347,67 @@ async function save() {
           Lo verán todos los jugadores que tengan esta batería asignada.
         </p>
 
-        <p v-if="!isEdit" class="text-sm text-slate-500">
-          Guarda primero la batería y podrás adjuntarle el PDF.
-        </p>
-
-        <template v-else>
-          <div v-if="adjuntos.length" class="mb-3 space-y-2">
-            <div
-              v-for="adjunto in adjuntos"
-              :key="adjunto.id"
-              class="flex items-center gap-3 rounded-xl bg-slate-800/60 px-3 py-2.5"
+        <div v-if="adjuntos.length" class="mb-3 space-y-2">
+          <div
+            v-for="adjunto in adjuntos"
+            :key="adjunto.id"
+            class="flex items-center gap-3 rounded-xl bg-slate-800/60 px-3 py-2.5"
+          >
+            <span class="text-lg">📄</span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium">{{ adjunto.filename }}</span>
+              <span class="text-xs text-slate-500">{{ pesoLegible(adjunto.size_bytes) }}</span>
+            </span>
+            <button
+              type="button"
+              class="btn-danger !min-h-0 !px-2.5 !py-1 !text-xs"
+              @click="borrarAdjunto(adjunto)"
             >
-              <span class="text-lg">📄</span>
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm font-medium">{{ adjunto.filename }}</span>
-                <span class="text-xs text-slate-500">{{ pesoLegible(adjunto.size_bytes) }}</span>
-              </span>
-              <button
-                type="button"
-                class="btn-danger !min-h-0 !px-2.5 !py-1 !text-xs"
-                @click="borrarAdjunto(adjunto)"
-              >
-                Quitar
-              </button>
-            </div>
+              Quitar
+            </button>
           </div>
+        </div>
 
-          <input
-            ref="ficheroInput"
-            type="file"
-            accept="application/pdf,.pdf"
-            class="hidden"
-            @change="subirPdf"
-          />
+        <div
+          v-if="pendiente"
+          class="mb-3 flex items-center gap-3 rounded-xl bg-brand-600/15 px-3 py-2.5"
+        >
+          <span class="text-lg">📄</span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-medium">{{ pendiente.name }}</span>
+            <span class="text-xs text-brand-300">Se subirá al guardar la sesión</span>
+          </span>
           <button
             type="button"
-            class="btn-ghost w-full !text-sm"
-            :disabled="subiendo"
-            @click="ficheroInput?.click()"
+            class="btn-ghost !min-h-0 !px-2.5 !py-1 !text-xs"
+            @click="pendiente = null"
           >
-            {{ subiendo ? 'Subiendo…' : adjuntos.length ? '+ Añadir otro PDF' : '+ Subir un PDF' }}
+            Quitar
           </button>
-          <p class="mt-2 text-xs text-slate-500">Máximo 10 MB por fichero.</p>
-        </template>
+        </div>
+
+        <input
+          ref="ficheroInput"
+          type="file"
+          accept="application/pdf,.pdf"
+          class="hidden"
+          @change="subirPdf"
+        />
+        <button
+          type="button"
+          class="btn-ghost w-full !text-sm"
+          :disabled="subiendo"
+          @click="ficheroInput?.click()"
+        >
+          {{
+            subiendo
+              ? 'Subiendo…'
+              : adjuntos.length || pendiente
+                ? '+ Añadir otro PDF'
+                : '+ Adjuntar un PDF'
+          }}
+        </button>
+        <p class="mt-2 text-xs text-slate-500">Máximo 10 MB por fichero.</p>
       </section>
 
       <!-- Ejercicios -->

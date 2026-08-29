@@ -55,15 +55,33 @@ function previousLoad(row) {
   return previous ? valueFor(previous, 'loadKg') : null
 }
 
-/** Copia la carga de la serie anterior: lo habitual es repetir peso. */
-function repeatPrevious(row) {
-  const previous = rows.value.find((entry) => entry.number === row.number - 1)
-  const load = previousLoad(row)
-  if (load === null || load === undefined) return
-  setDraft(row, 'loadKg', load)
-  setDraft(row, 'reps', valueFor(previous, 'reps') ?? props.item.target_reps ?? null)
+/**
+ * Atajo de cada serie: el peso que marcó el entrenador si es la primera, y el
+ * de la serie anterior a partir de ahí. Guarda igual que el resto, una a una:
+ * rellenar de golpe series que no se han hecho seria registrar lo que no toca.
+ */
+function atajo(row) {
+  const objetivo = props.item.prescription?.target_load_kg
+  if (row.number === 1) {
+    return objetivo === null || objetivo === undefined
+      ? null
+      : { etiqueta: `usar ${objetivo}`, valor: objetivo }
+  }
+  const anterior = previousLoad(row)
+  return anterior === null || anterior === undefined
+    ? null
+    : { etiqueta: '= a la anterior', valor: anterior }
+}
+
+function aplicarAtajo(row) {
+  const propuesta = atajo(row)
+  if (!propuesta) return
+  const previa = rows.value.find((entry) => entry.number === row.number - 1)
+  setDraft(row, 'loadKg', propuesta.valor)
+  setDraft(row, 'reps', valueFor(row, 'reps') ?? (previa && valueFor(previa, 'reps')) ?? props.item.target_reps ?? null)
   commit(row)
 }
+
 </script>
 
 <template>
@@ -93,6 +111,19 @@ function repeatPrevious(row) {
     </button>
 
     <div v-if="open" class="border-t border-slate-800 p-4">
+      <p
+        v-if="item.prescription"
+        class="mb-3 rounded-lg bg-brand-600/15 px-3 py-2.5 text-sm text-brand-100"
+      >
+        <span class="font-semibold">🎯 El entrenador te marca</span>
+        <template v-if="item.prescription.target_load_kg !== null">
+          {{ ' ' }}<strong class="text-white">{{ item.prescription.target_load_kg }} kg</strong>
+        </template>
+        <span v-if="item.prescription.note" class="mt-1 block text-xs text-brand-200/90">
+          {{ item.prescription.note }}
+        </span>
+      </p>
+
       <p
         v-if="item.last_performance"
         class="mb-3 rounded-lg bg-slate-800/60 px-3 py-2 text-xs text-slate-400"
@@ -128,12 +159,12 @@ function repeatPrevious(row) {
             </span>
             <span v-else-if="row.done" class="text-xs font-semibold text-emerald-400">✓ guardado</span>
             <button
-              v-else-if="previousLoad(row) !== null && previousLoad(row) !== undefined"
+              v-else-if="atajo(row)"
               type="button"
               class="text-xs font-semibold text-brand-400"
-              @click="repeatPrevious(row)"
+              @click="aplicarAtajo(row)"
             >
-              = a la anterior
+              {{ atajo(row).etiqueta }}
             </button>
           </div>
 
